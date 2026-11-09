@@ -1,0 +1,282 @@
+openapi: 3.1.0
+info:
+  title: Fluxio Control Plane API
+  version: 1.0.0
+  description: OpenAPI 3.1 Specification for Fluxio Mobile Secure File Transfer Control Plane.
+servers:
+  - url: https://api.fluxio.app/api/v1
+    description: Production Server
+  - url: http://localhost:8080/api/v1
+    description: Local Development Server
+
+paths:
+  /auth/login:
+    post:
+      summary: User Login
+      description: Authenticates user credentials and issues JWT Access & Refresh tokens.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username: { type: string }
+                password: { type: string, format: password }
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+
+  /auth/refresh:
+    post:
+      summary: Refresh Access Token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken: { type: string }
+      responses:
+        '200':
+          description: Token refreshed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+
+  /transfers/uploads:
+    post:
+      summary: Initiate an Upload Session
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InitiateUploadRequest'
+      responses:
+        '201':
+          description: Upload session created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InitiateUploadResponse'
+
+  /transfers/{transferId}/parts/urls:
+    post:
+      summary: Get Presigned URLs for Chunks
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: transferId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [partNumbers]
+              properties:
+                partNumbers:
+                  type: array
+                  items: { type: integer, minimum: 1 }
+      responses:
+        '200':
+          description: Map of part numbers to Presigned PUT URLs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transferId: { type: string, format: uuid }
+                  presignedUrls:
+                    type: object
+                    additionalProperties: { type: string, format: uri }
+
+  /transfers/{transferId}/parts:
+    get:
+      summary: Query Uploaded / Missing Parts (Resume protocol)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: transferId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Current parts status on storage
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transferId: { type: string, format: uuid }
+                  uploadedParts:
+                    type: array
+                    items: { type: integer }
+                  missingParts:
+                    type: array
+                    items: { type: integer }
+
+  /transfers/{transferId}/complete:
+    post:
+      summary: Complete and Commit Upload
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: transferId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [parts]
+              properties:
+                parts:
+                  type: array
+                  items:
+                    type: object
+                    required: [partNumber, etag]
+                    properties:
+                      partNumber: { type: integer }
+                      etag: { type: string }
+      responses:
+        '200':
+          description: Transfer finalized and file record committed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileMetadata'
+
+  /transfers/{transferId}/abort:
+    post:
+      summary: Abort Upload Session
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: transferId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: Session successfully aborted and cleaned up
+
+  /files/{fileId}:
+    get:
+      summary: Get File Metadata & Wrapped Key
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: fileId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: File metadata details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileMetadata'
+
+  /files/{fileId}/shares:
+    post:
+      summary: Create Expiring Share Link
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: fileId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [expiresInSeconds]
+              properties:
+                expiresInSeconds: { type: integer, example: 86400 }
+                password: { type: string, nullable: true }
+                maxDownloads: { type: integer, nullable: true, example: 5 }
+      responses:
+        '201':
+          description: Share link generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  shareId: { type: string, format: uuid }
+                  shareUrl: { type: string, format: uri }
+                  expiresAt: { type: string, format: date-time }
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    AuthResponse:
+      type: object
+      properties:
+        accessToken: { type: string }
+        refreshToken: { type: string }
+        tokenType: { type: string, example: "Bearer" }
+        expiresIn: { type: integer, example: 3600 }
+
+    InitiateUploadRequest:
+      type: object
+      required: [fileName, plaintextSize, chunkSize, totalChunks, wrappedDek, dekWrapIv]
+      properties:
+        fileName: { type: string, example: "confidential_report.pdf" }
+        plaintextSize: { type: integer, format: int64, example: 104857600 }
+        chunkSize: { type: integer, example: 5242880 }
+        totalChunks: { type: integer, example: 20 }
+        mimeType: { type: string, example: "application/pdf" }
+        wrappedDek: { type: string, description: "Base64 encoded wrapped DEK" }
+        dekWrapIv: { type: string, description: "Base64 encoded IV used to wrap DEK" }
+
+    InitiateUploadResponse:
+      type: object
+      properties:
+        transferId: { type: string, format: uuid }
+        fileId: { type: string, format: uuid }
+        uploadId: { type: string }
+        chunkSize: { type: integer }
+        totalChunks: { type: integer }
+        expiresAt: { type: string, format: date-time }
+
+    FileMetadata:
+      type: object
+      properties:
+        fileId: { type: string, format: uuid }
+        fileName: { type: string }
+        plaintextSize: { type: integer, format: int64 }
+        totalChunks: { type: integer }
+        wrappedDek: { type: string }
+        dekWrapIv: { type: string }
+        ownerId: { type: string }
+        createdAt: { type: string, format: date-time }
+
