@@ -27,9 +27,18 @@ erDiagram
 Represents system user identities and coarse RBAC roles.
 * `id` (`UUID`, PK, default `gen_random_uuid()`): Unique user ID.
 * `username` (`VARCHAR(64)`, UNIQUE, NOT NULL): User identity handle.
-* `password_hash` (`VARCHAR(255)`, NOT NULL): BCrypt or Argon2id hashed password.
+* `password_hash` (`VARCHAR(255)`, NOT NULL): BCrypt or Argon2id hashed password (managed directly by Backend Auth Service).
 * `role` (`VARCHAR(32)`, NOT NULL): Global role (`ADMIN`, `USER`, `GUEST`).
 * `status` (`VARCHAR(32)`, NOT NULL, DEFAULT `'ACTIVE'`): Account state (`ACTIVE`, `SUSPENDED`).
+* `created_at` (`TIMESTAMPTZ`, NOT NULL, DEFAULT `NOW()`).
+
+#### `refresh_tokens`
+Native Backend JWT session & rotation management.
+* `id` (`UUID`, PK, default `gen_random_uuid()`).
+* `user_id` (`UUID`, FK `users(id)`, NOT NULL).
+* `token_hash` (`VARCHAR(255)`, NOT NULL, UNIQUE): Hashed refresh token.
+* `expires_at` (`TIMESTAMPTZ`, NOT NULL).
+* `revoked` (`BOOLEAN`, NOT NULL, DEFAULT FALSE).
 * `created_at` (`TIMESTAMPTZ`, NOT NULL, DEFAULT `NOW()`).
 
 #### `files`

@@ -3,7 +3,7 @@
 **Tên dự án:** Fluxio – Tối ưu hiệu năng truyền tải & Bảo mật tệp tin trong ứng dụng Android  
 **Nền tảng công nghệ:** 
 - **Mobile Client:** Android (Kotlin, Jetpack Compose, Room Database, WorkManager, Android Keystore / TEE)
-- **Backend (Control Plane):** Spring Boot (Java 21, Spring Security, Keycloak / JWT)
+- **Backend (Control Plane):** Spring Boot (Java 21, Spring Security, Native JWT Auth Service)
 - **Storage (Data Plane):** MinIO / S3-compatible Object Storage
 - **Database:** PostgreSQL (Metadata, Sessions, Permissions, Audit Logs)  
 **Phiên bản đặc tả:** 2.0 (Open Specification Draft)  
@@ -63,7 +63,7 @@ graph TD
 
 ### 3.2. Xác thực JWT (JSON Web Token)
 - Quản lý phiên đăng nhập chặt chẽ với cặp token: **Access Token** ngắn hạn và **Refresh Token** có cơ chế xoay vòng (rotating refresh token).
-- Tích hợp qua Spring Security và Keycloak. Toàn bộ các API thuộc Control Plane đều bắt buộc xác thực token hợp lệ.
+- Tích hợp trực tiếp trong Spring Boot Backend (Spring Security + JWT filter nội bộ, quản lý người dùng và lưu trữ refreshToken trong PostgreSQL). Toàn bộ các API thuộc Control Plane đều bắt buộc xác thực token hợp lệ.
 
 ### 3.3. Phân quyền RBAC kết hợp Document-Level Authorization
 - **Role-Based Access Control (RBAC):** Phân định vai trò người dùng ở cấp hệ thống (`ADMIN`, `USER`, `GUEST`).

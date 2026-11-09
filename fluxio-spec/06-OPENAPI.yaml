@@ -10,6 +10,28 @@ servers:
     description: Local Development Server
 
 paths:
+  /auth/register:
+    post:
+      summary: User Registration
+      description: Registers a new user directly in the Backend database.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username: { type: string, minLength: 3, maxLength: 64 }
+                password: { type: string, format: password, minLength: 8 }
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+
   /auth/login:
     post:
       summary: User Login
