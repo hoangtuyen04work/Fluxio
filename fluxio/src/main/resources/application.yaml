@@ -1,3 +1,11 @@
 spring:
   application:
     name: fluxio
+fluxio:
+  username: ${FLUXIO_USERNAME:fluxio}
+  password: ${FLUXIO_PASSWORD:}
+  storage:
+    endpoint: ${FLUXIO_STORAGE_ENDPOINT:http://10.0.2.2:9000}
+    access-key: ${FLUXIO_STORAGE_ACCESS_KEY:local-access}
+    secret-key: ${FLUXIO_STORAGE_SECRET_KEY:local-secret}
+    bucket: ${FLUXIO_STORAGE_BUCKET:fluxio}
