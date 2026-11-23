@@ -1,0 +1,336 @@
+openapi: 3.1.0
+info:
+  title: Fluxio Transfer Control Plane API
+  version: 1.0.0-draft
+  description: >-
+    Target contract for performance-first multipart upload and resumable download.
+    File bytes move directly between Android and private object storage; this API
+    only controls authorization, quota, multipart lifecycle, and metadata.
+servers:
+  - url: /api/v1
+security:
+  - bearerAuth: []
+tags:
+  - name: Uploads
+  - name: Files
+paths:
+  /uploads:
+    post:
+      tags: [Uploads]
+      operationId: createUpload
+      summary: Create or replay a multipart upload session
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUploadRequest'
+      responses:
+        '201':
+          description: A new upload session and quota reservation were created.
+          headers:
+            Location:
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadSession'
+        '200':
+          description: The same idempotent request was replayed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadSession'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/IdempotencyConflict' }
+        '413':
+          description: Declared file size exceeds 5 GiB.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '422': { $ref: '#/components/responses/QuotaExceeded' }
+  /uploads/{uploadId}/part-urls:
+    post:
+      tags: [Uploads]
+      operationId: signUploadParts
+      summary: Sign a bounded set of missing part uploads
+      parameters:
+        - $ref: '#/components/parameters/UploadId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignPartsRequest'
+      responses:
+        '200':
+          description: Short-lived URLs for authorized part numbers.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignedParts'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/InvalidUploadState' }
+        '410': { $ref: '#/components/responses/UploadExpired' }
+  /uploads/{uploadId}/parts:
+    get:
+      tags: [Uploads]
+      operationId: listUploadedParts
+      summary: Reconcile confirmed parts with object storage
+      parameters:
+        - $ref: '#/components/parameters/UploadId'
+      responses:
+        '200':
+          description: Object storage's authoritative confirmed part set.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadedParts'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/InvalidUploadState' }
+        '410': { $ref: '#/components/responses/UploadExpired' }
+  /uploads/{uploadId}/complete:
+    post:
+      tags: [Uploads]
+      operationId: completeUpload
+      summary: Complete or replay completion of an ordered part set
+      parameters:
+        - $ref: '#/components/parameters/UploadId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompleteUploadRequest'
+      responses:
+        '200':
+          description: Upload is complete; duplicate completion returns the same file.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileMetadata'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/InvalidUploadState' }
+        '410': { $ref: '#/components/responses/UploadExpired' }
+  /uploads/{uploadId}:
+    delete:
+      tags: [Uploads]
+      operationId: abortUpload
+      summary: Abort an upload and release its reservation exactly once
+      parameters:
+        - $ref: '#/components/parameters/UploadId'
+      responses:
+        '204':
+          description: Upload is aborted, or had already been aborted.
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Abort conflicts with completion or another non-abortable state.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+  /files/{fileId}/download-ticket:
+    post:
+      tags: [Files]
+      operationId: createDownloadTicket
+      summary: Authorize a short-lived URL that supports byte ranges
+      parameters:
+        - $ref: '#/components/parameters/FileId'
+      responses:
+        '200':
+          description: Download metadata and a short-lived ranged GET URL.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DownloadTicket'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 16
+        maxLength: 128
+    UploadId:
+      name: uploadId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    FileId:
+      name: fileId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+  responses:
+    BadRequest:
+      description: Request violates the contract.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Unauthorized:
+      description: Bearer token is absent or invalid.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    NotFound:
+      description: Resource does not exist or is not visible to this owner.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    InvalidUploadState:
+      description: Operation is not valid in the upload's current state.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    UploadExpired:
+      description: Upload session expired and can no longer accept work.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    IdempotencyConflict:
+      description: Idempotency key was previously used with a different request.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    QuotaExceeded:
+      description: The 20 GiB account quota would be exceeded.
+      content:
+        application/problem+json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/Problem'
+              - type: object
+                properties:
+                  quotaBytes: { type: integer, format: int64 }
+                  activeBytes: { type: integer, format: int64 }
+                  reservedBytes: { type: integer, format: int64 }
+  schemas:
+    CreateUploadRequest:
+      type: object
+      additionalProperties: false
+      required: [fileName, sizeBytes]
+      properties:
+        fileName: { type: string, minLength: 1, maxLength: 255 }
+        contentType: { type: string, maxLength: 255, default: application/octet-stream }
+        sizeBytes:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 5368709120
+    UploadSession:
+      type: object
+      required: [uploadId, fileId, state, sizeBytes, partSizeBytes, partCount, expiresAt]
+      properties:
+        uploadId: { type: string, format: uuid }
+        fileId: { type: string, format: uuid }
+        state: { $ref: '#/components/schemas/UploadState' }
+        sizeBytes: { type: integer, format: int64 }
+        partSizeBytes: { type: integer, format: int64 }
+        partCount: { type: integer, minimum: 1, maximum: 10000 }
+        expiresAt: { type: string, format: date-time }
+    SignPartsRequest:
+      type: object
+      additionalProperties: false
+      required: [partNumbers]
+      properties:
+        partNumbers:
+          type: array
+          minItems: 1
+          maxItems: 32
+          uniqueItems: true
+          items: { type: integer, minimum: 1, maximum: 10000 }
+    SignedParts:
+      type: object
+      required: [uploadId, expiresAt, parts]
+      properties:
+        uploadId: { type: string, format: uuid }
+        expiresAt: { type: string, format: date-time }
+        parts:
+          type: array
+          items: { $ref: '#/components/schemas/SignedPart' }
+    SignedPart:
+      type: object
+      required: [partNumber, url]
+      properties:
+        partNumber: { type: integer }
+        url: { type: string, format: uri }
+        requiredHeaders:
+          type: object
+          additionalProperties: { type: string }
+    UploadedParts:
+      type: object
+      required: [uploadId, parts]
+      properties:
+        uploadId: { type: string, format: uuid }
+        parts:
+          type: array
+          items: { $ref: '#/components/schemas/CompletedPart' }
+    CompleteUploadRequest:
+      type: object
+      additionalProperties: false
+      required: [parts]
+      properties:
+        parts:
+          type: array
+          minItems: 1
+          maxItems: 10000
+          items: { $ref: '#/components/schemas/CompletedPart' }
+    CompletedPart:
+      type: object
+      additionalProperties: false
+      required: [partNumber, etag, sizeBytes]
+      properties:
+        partNumber: { type: integer, minimum: 1, maximum: 10000 }
+        etag: { type: string, minLength: 1, maxLength: 255 }
+        sizeBytes: { type: integer, format: int64, minimum: 1 }
+        checksumSha256: { type: string, minLength: 44, maxLength: 44 }
+    FileMetadata:
+      type: object
+      required: [fileId, fileName, sizeBytes, objectVersion, createdAt]
+      properties:
+        fileId: { type: string, format: uuid }
+        fileName: { type: string }
+        contentType: { type: string }
+        sizeBytes: { type: integer, format: int64 }
+        objectVersion: { type: string }
+        createdAt: { type: string, format: date-time }
+    DownloadTicket:
+      type: object
+      required: [file, url, expiresAt]
+      properties:
+        file: { $ref: '#/components/schemas/FileMetadata' }
+        url: { type: string, format: uri }
+        expiresAt: { type: string, format: date-time }
+        rangeSupported: { type: boolean, const: true }
+    UploadState:
+      type: string
+      enum: [INITIALIZING, ACTIVE, COMPLETING, COMPLETED, ABORTED, EXPIRED]
+    Problem:
+      type: object
+      required: [type, title, status, code]
+      properties:
+        type: { type: string, format: uri-reference }
+        title: { type: string }
+        status: { type: integer, minimum: 400, maximum: 599 }
+        detail: { type: string }
+        code: { type: string }
+        traceId: { type: string }
+

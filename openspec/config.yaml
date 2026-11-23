@@ -1,0 +1,38 @@
+schema: spec-driven
+
+context: |
+  Fluxio is an Android secure-file-transfer MVP with a Java 21 / Spring Boot 4 control plane and MinIO object storage.
+  Android encrypts and decrypts file bytes locally. The backend authenticates one configured account and issues presigned MinIO URLs; file bytes never pass through the backend.
+  The active product direction is performance-first file upload, download, management, and sharing. Client-side file encryption, FXM1, Android Keystore wrapping, E2EE, and cryptographic sharing are deferred to a future OpenSpec change and are not requirements for the performance branch.
+  Transport TLS, authentication, authorization, input validation, and private object storage remain baseline operational safeguards; deferring file encryption does not authorize disabling them.
+  The current implementation has no PostgreSQL schema, Room database, multipart upload, resumable transfer, sharing, registration, or refresh-token flow.
+  Canonical current-behavior requirements live under openspec/specs. Target decisions and their evidence live only in the active change under openspec/changes/optimize-transfer-performance.
+  Preserve the public MVP routes under /api/v1/auth/login and /api/v1/mvp/files unless a proposal explicitly declares a breaking change.
+  The current code still contains FXM1 encryption until the active performance change is applied and archived. Do not confuse current implementation evidence with the selected target architecture.
+
+rules:
+  proposal:
+    - State whether the change affects the current MVP, the target platform specification, or both.
+    - List affected canonical capability paths and mark every wire-format or route incompatibility as BREAKING.
+    - Explicitly state non-goals when target-platform documents contain adjacent unimplemented features.
+  specs:
+    - Describe observable behavior with SHALL or MUST and include testable WHEN/THEN scenarios.
+    - Keep implementation classes and library choices out of requirements unless the mechanism is itself a security or compatibility contract.
+    - Treat public HTTP payloads, object ownership boundaries, resumability, transfer correctness, and measured performance acceptance criteria as compatibility contracts.
+    - Do not introduce client-side encryption or key-management requirements unless a future proposal explicitly restores that scope.
+  design:
+    - Link relevant active-change contracts and identify Android, backend, MinIO, and specification impacts separately.
+    - Include rollback and compatibility decisions for protocol, cryptographic, persistence, or API changes.
+    - Distinguish current-state facts from target-state decisions.
+  tasks:
+    - Every task must name its verification evidence and update the affected canonical spec or delta spec in the same task group.
+    - Keep Android, backend, contract, and integration verification adjacent to the implementation they validate.
+
+operations:
+  apply:
+    guidance:
+      - Do not implement behavior that is absent from canonical specs and the active OpenSpec change.
+      - Mark a task complete only after its stated verification succeeds.
+  archive:
+    guidance:
+      - Confirm canonical specs describe the shipped behavior and architecture documentation no longer contradicts the implementation.
