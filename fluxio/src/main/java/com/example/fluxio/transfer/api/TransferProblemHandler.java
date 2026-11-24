@@ -4,6 +4,9 @@ import com.example.fluxio.transfer.application.InvalidPartRequestException;
 import com.example.fluxio.transfer.application.InvalidUploadStateException;
 import com.example.fluxio.transfer.application.UploadExpiredException;
 import com.example.fluxio.transfer.application.UploadNotFoundException;
+import com.example.fluxio.transfer.application.InvalidCompletionException;
+import com.example.fluxio.transfer.persistence.InvalidUploadSizeException;
+import com.example.fluxio.transfer.persistence.QuotaExceededException;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
@@ -44,6 +47,24 @@ public final class TransferProblemHandler {
     ResponseEntity<ProblemDetail> uploadExpired() {
         return problem(org.springframework.http.HttpStatus.GONE,
                 "UPLOAD_EXPIRED", "Upload session has expired");
+    }
+
+    @ExceptionHandler(InvalidCompletionException.class)
+    ResponseEntity<ProblemDetail> invalidCompletion() {
+        return problem(org.springframework.http.HttpStatus.BAD_REQUEST,
+                "INVALID_COMPLETION", "Completion parts do not match the authoritative uploaded parts");
+    }
+
+    @ExceptionHandler(InvalidUploadSizeException.class)
+    ResponseEntity<ProblemDetail> invalidUploadSize() {
+        return problem(org.springframework.http.HttpStatus.PAYLOAD_TOO_LARGE,
+                "FILE_TOO_LARGE", "Declared file size exceeds 5 GiB");
+    }
+
+    @ExceptionHandler(QuotaExceededException.class)
+    ResponseEntity<ProblemDetail> quotaExceeded() {
+        return problem(org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY,
+                "QUOTA_EXCEEDED", "Account storage quota would be exceeded");
     }
 
     private ResponseEntity<ProblemDetail> problem(

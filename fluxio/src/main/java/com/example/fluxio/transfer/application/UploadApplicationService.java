@@ -54,6 +54,8 @@ public final class UploadApplicationService {
                 ownerId,
                 objectKey,
                 requestHash(fileName, contentType, sizeBytes),
+                fileName,
+                contentType,
                 sizeBytes,
                 partSizeBytes,
                 partCount,
@@ -102,6 +104,85 @@ public final class UploadApplicationService {
         return storage.listParts(session.objectKey(), session.storageUploadId());
     }
 
+    public com.example.fluxio.transfer.persistence.StoredFileRecord complete(
+            String ownerId, UUID uploadId, List<CompletionPart> requestedParts) {
+        var existing = uploads.findFileByUpload(uploadId, ownerId);
+        if (existing.isPresent()) {
+            return existing.get();
+        }
+        UploadSessionRecord session = uploads.findByOwner(uploadId, ownerId)
+                .orElseThrow(UploadNotFoundException::new);
+        if (session.state() == com.example.fluxio.transfer.domain.UploadState.COMPLETING) {
+            var object = storage.headObject(session.objectKey());
+            if (object.sizeBytes() != session.declaredSizeBytes()) {
+                throw new InvalidCompletionException();
+            }
+            String version = object.versionId() == null ? object.etag() : object.versionId();
+            return uploads.finalizeCompletion(uploadId, object.etag(), version);
+        }
+        validateCompletion(session, requestedParts);
+        if (!uploads.claimCompletion(uploadId, ownerId)) {
+            return uploads.findFileByUpload(uploadId, ownerId)
+                    .orElseThrow(InvalidUploadStateException::new);
+        }
+        var completed = storage.complete(
+                session.objectKey(), session.storageUploadId(), requestedParts.stream()
+                        .map(part -> new MultipartObjectStore.CompletedPart(part.partNumber(), part.etag()))
+                        .toList());
+        String version = completed.versionId() == null ? completed.etag() : completed.versionId();
+        return uploads.finalizeCompletion(uploadId, completed.etag(), version);
+    }
+
+    public void abort(String ownerId, UUID uploadId) {
+        UploadSessionRecord session = uploads.findByOwner(uploadId, ownerId)
+                .orElseThrow(UploadNotFoundException::new);
+        if (session.state() == com.example.fluxio.transfer.domain.UploadState.ABORTED
+                || session.state() == com.example.fluxio.transfer.domain.UploadState.EXPIRED) {
+            return;
+        }
+        if (session.state() == com.example.fluxio.transfer.domain.UploadState.COMPLETING) {
+            throw new InvalidUploadStateException();
+        }
+        if (!uploads.claimAbort(uploadId, ownerId)) {
+            throw new InvalidUploadStateException();
+        }
+        if (session.storageUploadId() != null) {
+            storage.abort(session.objectKey(), session.storageUploadId());
+        }
+    }
+
+    private void validateCompletion(UploadSessionRecord session, List<CompletionPart> requestedParts) {
+        if (session.state() != com.example.fluxio.transfer.domain.UploadState.ACTIVE
+                || requestedParts == null || requestedParts.size() != session.partCount()) {
+            throw new InvalidCompletionException();
+        }
+        long total = 0;
+        for (int index = 0; index < requestedParts.size(); index++) {
+            CompletionPart requested = requestedParts.get(index);
+            if (requested.partNumber() != index + 1 || requested.sizeBytes() < 1) {
+                throw new InvalidCompletionException();
+            }
+            total += requested.sizeBytes();
+        }
+        if (total != session.declaredSizeBytes()) {
+            throw new InvalidCompletionException();
+        }
+        List<MultipartObjectStore.UploadedPart> stored = storage.listParts(
+                session.objectKey(), session.storageUploadId());
+        if (stored.size() != requestedParts.size()) {
+            throw new InvalidCompletionException();
+        }
+        for (int index = 0; index < stored.size(); index++) {
+            var actual = stored.get(index);
+            var requested = requestedParts.get(index);
+            if (actual.partNumber() != requested.partNumber()
+                    || !actual.etag().equals(requested.etag())
+                    || actual.sizeBytes() != requested.sizeBytes()) {
+                throw new InvalidCompletionException();
+            }
+        }
+    }
+
     private UploadSessionRecord activeSession(String ownerId, UUID uploadId) {
         UploadSessionRecord session = uploads.findByOwner(uploadId, ownerId)
                 .orElseThrow(UploadNotFoundException::new);
@@ -134,4 +215,6 @@ public final class UploadApplicationService {
     public record SignedPart(int partNumber, java.net.URI url) {}
 
     public record SignedParts(UUID uploadId, Instant expiresAt, List<SignedPart> parts) {}
+
+    public record CompletionPart(int partNumber, String etag, long sizeBytes, String checksumSha256) {}
 }

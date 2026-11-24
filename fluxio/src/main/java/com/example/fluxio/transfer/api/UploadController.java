@@ -2,6 +2,7 @@ package com.example.fluxio.transfer.api;
 
 import com.example.fluxio.transfer.application.IdempotencyService;
 import com.example.fluxio.transfer.application.UploadApplicationService;
+import com.example.fluxio.transfer.application.InvalidUploadStateException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -16,6 +17,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -68,13 +70,18 @@ public final class UploadController {
             return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(claim.responseBody());
         }
 
-        var session = uploads.create(
-                principal.getName(), request.fileName(), contentType, request.sizeBytes());
-        String responseBody = json.writeValueAsString(TransferDtos.UploadSession.from(session));
-        idempotency.complete(principal.getName(), "CREATE_UPLOAD", key, 201, responseBody);
-        return ResponseEntity.created(java.net.URI.create("/api/v1/uploads/" + session.id()))
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(responseBody);
+        try {
+            var session = uploads.create(
+                    principal.getName(), request.fileName(), contentType, request.sizeBytes());
+            String responseBody = json.writeValueAsString(TransferDtos.UploadSession.from(session));
+            idempotency.complete(principal.getName(), "CREATE_UPLOAD", key, 201, responseBody);
+            return ResponseEntity.created(java.net.URI.create("/api/v1/uploads/" + session.id()))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(responseBody);
+        } catch (RuntimeException exception) {
+            idempotency.abandon(principal.getName(), "CREATE_UPLOAD", key);
+            throw exception;
+        }
     }
 
     @PostMapping(
@@ -93,6 +100,53 @@ public final class UploadController {
     public TransferDtos.UploadedParts listParts(Principal principal, @PathVariable UUID uploadId) {
         return TransferDtos.UploadedParts.from(
                 uploadId, uploads.listParts(principal.getName(), uploadId));
+    }
+
+    @PostMapping(
+            path = "/{uploadId}/complete",
+            consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<String> complete(
+            Principal principal,
+            @PathVariable UUID uploadId,
+            @RequestHeader("Idempotency-Key") String key,
+            @RequestBody TransferDtos.CompleteUploadRequest request) throws Exception {
+        if (key == null || key.length() < 16 || key.length() > 128
+                || request.parts() == null || request.parts().isEmpty()) {
+            throw new TransferContractException(
+                    HttpStatus.BAD_REQUEST, "INVALID_REQUEST", "The completion request is invalid");
+        }
+        String canonical = json.writeValueAsString(request);
+        var claim = idempotency.claim(
+                principal.getName(), "COMPLETE_UPLOAD", key, hash(canonical, "", 0),
+                Instant.now().plus(IDEMPOTENCY_LIFETIME));
+        if (claim.status() == IdempotencyService.Status.CONFLICT) {
+            throw new TransferContractException(
+                    HttpStatus.CONFLICT, "IDEMPOTENCY_KEY_REUSED",
+                    "The idempotency key was already used with a different request");
+        }
+        if (claim.status() == IdempotencyService.Status.REPLAY) {
+            return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(claim.responseBody());
+        }
+        try {
+            var file = uploads.complete(principal.getName(), uploadId,
+                    request.parts().stream().map(TransferDtos.CompletionPart::toApplication).toList());
+            String body = json.writeValueAsString(TransferDtos.FileMetadata.from(file));
+            idempotency.complete(principal.getName(), "COMPLETE_UPLOAD", key, 200, body);
+            return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(body);
+        } catch (InvalidUploadStateException exception) {
+            throw new TransferContractException(
+                    HttpStatus.CONFLICT, "UPLOAD_COMPLETION_IN_PROGRESS", "Upload completion is in progress");
+        } catch (RuntimeException exception) {
+            idempotency.abandon(principal.getName(), "COMPLETE_UPLOAD", key);
+            throw exception;
+        }
+    }
+
+    @DeleteMapping("/{uploadId}")
+    public ResponseEntity<Void> abort(Principal principal, @PathVariable UUID uploadId) {
+        uploads.abort(principal.getName(), uploadId);
+        return ResponseEntity.noContent().build();
     }
 
     private static void validate(String key, TransferDtos.CreateUploadRequest request) {

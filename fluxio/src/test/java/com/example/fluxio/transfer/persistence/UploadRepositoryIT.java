@@ -148,6 +148,8 @@ class UploadRepositoryIT {
                 ownerId,
                 "owners/" + ownerId + "/uploads/" + uploadId,
                 "request-" + uploadId,
+                "fixture.bin",
+                "application/octet-stream",
                 sizeBytes,
                 PART_SIZE,
                 Math.toIntExact((sizeBytes + PART_SIZE - 1) / PART_SIZE),

@@ -73,6 +73,15 @@ public final class IdempotencyService {
         }
     }
 
+    public void abandon(String ownerId, String operation, String idempotencyKey) {
+        jdbc.update(
+                """
+                delete from idempotency_record
+                where owner_id = ? and operation = ? and idempotency_key = ?
+                  and response_status is null
+                """, ownerId, operation, idempotencyKey);
+    }
+
     private Claim claimInTransaction(
             String ownerId,
             String operation,

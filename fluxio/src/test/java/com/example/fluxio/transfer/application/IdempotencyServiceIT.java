@@ -63,4 +63,15 @@ class IdempotencyServiceIT {
         assertThat(service.claim("alice", "COMPLETE_UPLOAD", "shared-key-123456", "hash-b", expiresAt).status())
                 .isEqualTo(IdempotencyService.Status.NEW);
     }
+
+    @Test
+    void abandonsAnUnfinishedClaimSoTheRequestCanRetry() {
+        Instant expiresAt = Instant.parse("2026-11-25T00:00:00Z");
+        service.claim("alice", "CREATE_UPLOAD", "retry-key-123456", "hash-a", expiresAt);
+
+        service.abandon("alice", "CREATE_UPLOAD", "retry-key-123456");
+
+        assertThat(service.claim("alice", "CREATE_UPLOAD", "retry-key-123456", "hash-a", expiresAt).status())
+                .isEqualTo(IdempotencyService.Status.NEW);
+    }
 }

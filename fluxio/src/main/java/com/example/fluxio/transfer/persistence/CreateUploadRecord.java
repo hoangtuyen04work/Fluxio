@@ -9,6 +9,8 @@ public record CreateUploadRecord(
         String ownerId,
         String objectKey,
         String requestHash,
+        String fileName,
+        String contentType,
         long declaredSizeBytes,
         long partSizeBytes,
         int partCount,

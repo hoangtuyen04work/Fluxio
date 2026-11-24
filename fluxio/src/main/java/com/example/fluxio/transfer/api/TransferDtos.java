@@ -3,6 +3,7 @@ package com.example.fluxio.transfer.api;
 import com.example.fluxio.transfer.application.UploadApplicationService;
 import com.example.fluxio.transfer.domain.UploadState;
 import com.example.fluxio.transfer.persistence.UploadSessionRecord;
+import com.example.fluxio.transfer.persistence.StoredFileRecord;
 import java.net.URI;
 import java.time.Instant;
 import java.util.List;
@@ -56,6 +57,27 @@ public final class TransferDtos {
             return new UploadedParts(uploadId, parts.stream()
                     .map(part -> new UploadedPart(part.partNumber(), part.etag(), part.sizeBytes()))
                     .toList());
+        }
+    }
+
+    public record CompletionPart(int partNumber, String etag, long sizeBytes, String checksumSha256) {
+        UploadApplicationService.CompletionPart toApplication() {
+            return new UploadApplicationService.CompletionPart(partNumber, etag, sizeBytes, checksumSha256);
+        }
+    }
+
+    public record CompleteUploadRequest(List<CompletionPart> parts) {}
+
+    public record FileMetadata(
+            UUID fileId,
+            String fileName,
+            String contentType,
+            long sizeBytes,
+            String objectVersion,
+            Instant createdAt) {
+        static FileMetadata from(StoredFileRecord file) {
+            return new FileMetadata(file.fileId(), file.fileName(), file.contentType(), file.sizeBytes(),
+                    file.objectVersion(), file.createdAt());
         }
     }
 }

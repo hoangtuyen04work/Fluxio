@@ -11,6 +11,8 @@ public record UploadSessionRecord(
         String objectKey,
         String storageUploadId,
         String requestHash,
+        String fileName,
+        String contentType,
         long declaredSizeBytes,
         long partSizeBytes,
         int partCount,

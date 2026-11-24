@@ -2,6 +2,8 @@ package com.example.fluxio.transfer;
 
 import com.example.fluxio.transfer.application.IdempotencyService;
 import com.example.fluxio.transfer.application.UploadApplicationService;
+import com.example.fluxio.transfer.application.UploadCleanupJob;
+import com.example.fluxio.transfer.application.UploadReconciliationService;
 import com.example.fluxio.transfer.persistence.JdbcUploadRepository;
 import com.example.fluxio.transfer.persistence.UploadRepository;
 import com.example.fluxio.transfer.storage.MultipartObjectStore;
@@ -14,11 +16,13 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.support.TransactionTemplate;
 
 @Configuration
 @ConditionalOnBean(DataSource.class)
+@EnableScheduling
 class TransferConfiguration {
     @Bean
     Clock transferClock() {
@@ -53,5 +57,17 @@ class TransferConfiguration {
             MultipartObjectStore storage,
             Clock transferClock) {
         return new UploadApplicationService(uploads, storage, transferClock, 8L * 1024 * 1024);
+    }
+
+    @Bean
+    UploadReconciliationService uploadReconciliationService(
+            UploadRepository uploads, MultipartObjectStore storage) {
+        return new UploadReconciliationService(uploads, storage);
+    }
+
+    @Bean
+    UploadCleanupJob uploadCleanupJob(
+            UploadRepository uploads, MultipartObjectStore storage, Clock transferClock) {
+        return new UploadCleanupJob(uploads, storage, transferClock, 100);
     }
 }

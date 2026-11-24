@@ -6,6 +6,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -18,6 +19,7 @@ import com.example.fluxio.transfer.persistence.UploadSessionRecord;
 import java.time.Instant;
 import java.net.URI;
 import java.util.List;
+import com.example.fluxio.transfer.persistence.StoredFileRecord;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -127,10 +129,36 @@ class UploadControllerTest {
                 .andExpect(jsonPath("$.parts[0].sizeBytes").value(8_388_608));
     }
 
+    @Test
+    void completesUploadAndReturnsFileMetadata() throws Exception {
+        when(idempotency.claim(eq("alice"), eq("COMPLETE_UPLOAD"), eq(KEY), any(), any()))
+                .thenReturn(new IdempotencyService.Claim(IdempotencyService.Status.NEW, null, null));
+        when(uploads.complete(eq("alice"), eq(UPLOAD_ID), any())).thenReturn(new StoredFileRecord(
+                FILE_ID, UPLOAD_ID, "alice", "owners/alice/files/2", "report.zip", "application/zip",
+                10_000_000, "version-1", "object-etag", Instant.parse("2026-11-24T09:01:00Z")));
+
+        mvc.perform(post("/api/v1/uploads/{uploadId}/complete", UPLOAD_ID)
+                        .principal(() -> "alice")
+                        .header("Idempotency-Key", KEY)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"parts\":[{\"partNumber\":1,\"etag\":\"etag-1\",\"sizeBytes\":10000000}]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.fileId").value(FILE_ID.toString()))
+                .andExpect(jsonPath("$.objectVersion").value("version-1"));
+    }
+
+    @Test
+    void abortsUploadIdempotently() throws Exception {
+        mvc.perform(delete("/api/v1/uploads/{uploadId}", UPLOAD_ID)
+                        .principal(() -> "alice"))
+                .andExpect(status().isNoContent());
+    }
+
     private static UploadSessionRecord activeSession() {
         Instant now = Instant.parse("2026-11-24T09:00:00Z");
         return new UploadSessionRecord(
                 UPLOAD_ID, FILE_ID, "alice", "owners/alice/files/2", "storage-1", "hash",
+                "report.zip", "application/zip",
                 10_000_000, 8_388_608, 2, UploadState.ACTIVE,
                 Instant.parse("2026-11-25T09:00:00Z"), now, now);
     }

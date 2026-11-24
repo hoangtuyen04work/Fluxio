@@ -105,7 +105,8 @@ class UploadApplicationServiceTest {
         public UploadSessionRecord reserveAndCreateInitializing(CreateUploadRecord command) {
             created = new UploadSessionRecord(
                     command.id(), command.fileId(), command.ownerId(), command.objectKey(), null,
-                    command.requestHash(), command.declaredSizeBytes(), command.partSizeBytes(),
+                    command.requestHash(), command.fileName(), command.contentType(),
+                    command.declaredSizeBytes(), command.partSizeBytes(),
                     command.partCount(), UploadState.INITIALIZING, command.expiresAt(), NOW, NOW);
             return created;
         }
@@ -114,7 +115,8 @@ class UploadApplicationServiceTest {
         public boolean activate(UUID uploadId, String storageUploadId, Instant expiresAt) {
             created = new UploadSessionRecord(
                     created.id(), created.fileId(), created.ownerId(), created.objectKey(), storageUploadId,
-                    created.requestHash(), created.declaredSizeBytes(), created.partSizeBytes(),
+                    created.requestHash(), created.fileName(), created.contentType(),
+                    created.declaredSizeBytes(), created.partSizeBytes(),
                     created.partCount(), UploadState.ACTIVE, expiresAt, created.createdAt(), NOW);
             return true;
         }
