@@ -5,6 +5,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -134,6 +135,17 @@ public final class JdbcUploadRepository implements UploadRepository {
             return true;
         });
         return Boolean.TRUE.equals(changed);
+    }
+
+    @Override
+    public Optional<UploadSessionRecord> findByOwner(UUID uploadId, String ownerId) {
+        return jdbc.query(
+                        "select * from upload_session where id = ? and owner_id = ?",
+                        this::map,
+                        uploadId,
+                        ownerId)
+                .stream()
+                .findFirst();
     }
 
     private UploadSessionRecord lock(UUID uploadId) {

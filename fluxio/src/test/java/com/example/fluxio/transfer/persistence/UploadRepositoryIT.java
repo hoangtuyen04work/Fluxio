@@ -119,6 +119,15 @@ class UploadRepositoryIT {
         assertUsage("owner-terminal", 100, 0);
     }
 
+    @Test
+    void ownerScopedLookupDoesNotExposeForeignUploads() {
+        var session = repository.reserveAndCreateInitializing(command("owner-alice", 100));
+
+        assertThat(repository.findByOwner(session.id(), "owner-alice")).contains(session);
+        assertThat(repository.findByOwner(session.id(), "owner-bob")).isEmpty();
+        assertThat(repository.findByOwner(UUID.randomUUID(), "owner-alice")).isEmpty();
+    }
+
     private boolean reserveAfterBarrier(String ownerId, CountDownLatch ready, CountDownLatch start)
             throws InterruptedException {
         ready.countDown();
