@@ -8,6 +8,8 @@ import com.example.fluxio.data.remote.UploadedParts
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.async
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -54,6 +56,40 @@ class MultipartUploadEngineTest {
 
         assertEquals(1, attempts[1])
         assertEquals(2, attempts[2])
+    }
+
+    @Test
+    fun rejectsDuplicateConcurrentWorkForTheSameTransfer() = runBlocking {
+        val id = UUID.randomUUID()
+        val started = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        val store = MemoryStore(UploadWork("upload-1", 8, 8))
+        val control = object : UploadControlPlane {
+            override suspend fun listParts(uploadId: String) = UploadedParts(uploadId, emptyList())
+            override suspend fun signParts(uploadId: String, partNumbers: List<Int>) = SignedParts(
+                uploadId, "later", partNumbers.map { SignedPart(it, "https://storage/$it") })
+            override suspend fun complete(uploadId: String, parts: List<CompletedPart>) =
+                FileMetadata("file-1", "f", null, 8, "v1", "now")
+        }
+        val uploader = PartUploader { _, range ->
+            started.complete(Unit)
+            release.await()
+            CompletedPart(range.partNumber, "etag", range.sizeBytes)
+        }
+        val registry = TransferRunRegistry()
+        val first = async { MultipartUploadEngine(store, control, uploader, 1, runRegistry = registry).run(id) }
+        started.await()
+
+        var duplicate = false
+        try {
+            MultipartUploadEngine(store, control, uploader, 1, runRegistry = registry).run(id)
+        } catch (_: DuplicateTransferException) {
+            duplicate = true
+        }
+        release.complete(Unit)
+        first.await()
+
+        assertTrue(duplicate)
     }
 
     private class MemoryStore(private val work: UploadWork) : TransferStore {

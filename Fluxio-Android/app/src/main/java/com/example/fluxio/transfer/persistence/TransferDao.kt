@@ -30,6 +30,12 @@ interface TransferDao {
     @Query("update transfers set state = :state, updatedAtEpochMillis = :now where localId = :id")
     suspend fun setState(id: String, state: TransferState, now: Long)
 
+    @Query("update transfers set transferredBytes = :bytes, updatedAtEpochMillis = :now where localId = :id")
+    suspend fun setProgress(id: String, bytes: Long, now: Long)
+
+    @Query("update transfers set objectVersion = :version, totalBytes = :totalBytes, transferredBytes = 0, updatedAtEpochMillis = :now where localId = :id")
+    suspend fun resetDownload(id: String, version: String, totalBytes: Long, now: Long)
+
     @Transaction
     suspend fun replaceParts(id: String, parts: List<TransferPartEntity>) {
         deleteParts(id)

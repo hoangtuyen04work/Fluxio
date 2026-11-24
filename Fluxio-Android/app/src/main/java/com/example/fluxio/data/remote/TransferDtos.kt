@@ -29,4 +29,10 @@ data class FileMetadata(
     val objectVersion: String,
     val createdAt: String
 )
+data class DownloadTicket(
+    val file: FileMetadata,
+    val url: String,
+    val expiresAt: String,
+    val rangeSupported: Boolean
+)
 data class TransferProblem(val status: Int, val code: String, val title: String, val detail: String? = null)

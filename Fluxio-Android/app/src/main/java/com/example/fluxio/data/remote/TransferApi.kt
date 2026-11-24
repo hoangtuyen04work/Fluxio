@@ -32,4 +32,7 @@ interface TransferApi {
 
     @DELETE("uploads/{uploadId}")
     suspend fun abortUpload(@Path("uploadId") uploadId: String)
+
+    @POST("files/{fileId}/download-ticket")
+    suspend fun createDownloadTicket(@Path("fileId") fileId: String): DownloadTicket
 }

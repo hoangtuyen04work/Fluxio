@@ -16,6 +16,7 @@ class TransferContractTest {
         assertEquals("uploads/{uploadId}/parts", methods.getValue("listParts").getAnnotation(GET::class.java).value)
         assertEquals("uploads/{uploadId}/complete", methods.getValue("completeUpload").getAnnotation(POST::class.java).value)
         assertEquals("uploads/{uploadId}", methods.getValue("abortUpload").getAnnotation(DELETE::class.java).value)
+        assertEquals("files/{fileId}/download-ticket", methods.getValue("createDownloadTicket").getAnnotation(POST::class.java).value)
         assertNotNull(methods.getValue("createUpload").parameterAnnotations.flatten()
             .firstOrNull { it is retrofit2.http.Header && it.value == "Idempotency-Key" })
     }

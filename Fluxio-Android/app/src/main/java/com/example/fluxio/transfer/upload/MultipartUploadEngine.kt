@@ -9,11 +9,14 @@ import com.example.fluxio.data.remote.TransferApi
 import com.example.fluxio.data.remote.UploadedParts
 import java.util.UUID
 import kotlinx.coroutines.async
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 data class UploadWork(val remoteUploadId: String, val totalBytes: Long, val partSizeBytes: Long)
 
@@ -49,11 +52,16 @@ class MultipartUploadEngine(
     private val controlPlane: UploadControlPlane,
     private val uploader: PartUploader,
     maxConcurrency: Int,
-    private val retryPolicy: UploadRetryPolicy = UploadRetryPolicy()
+    private val retryPolicy: UploadRetryPolicy = UploadRetryPolicy(),
+    private val runRegistry: TransferRunRegistry = TransferRunRegistry.shared
 ) {
     private val permits = Semaphore(maxConcurrency.also { require(it > 0) })
 
     suspend fun run(localTransferId: UUID): FileMetadata {
+        return runRegistry.run(localTransferId) { runRegistered(localTransferId) }
+    }
+
+    private suspend fun runRegistered(localTransferId: UUID): FileMetadata {
         val work = store.load(localTransferId)
         store.setState(TransferState.RECONCILING)
         return try {
@@ -86,6 +94,9 @@ class MultipartUploadEngine(
                 work.remoteUploadId, confirmed.values.sortedBy { it.partNumber })
             store.setState(TransferState.COMPLETED)
             result
+        } catch (cancelled: CancellationException) {
+            store.setState(TransferState.CANCELLED)
+            throw cancelled
         } catch (failure: Throwable) {
             store.setState(TransferState.FAILED)
             throw failure
@@ -115,6 +126,25 @@ class MultipartUploadEngine(
         }
     }
 }
+
+class TransferRunRegistry {
+    private val mutex = Mutex()
+    private val running = mutableSetOf<UUID>()
+
+    suspend fun <T> run(id: UUID, operation: suspend () -> T): T {
+        val accepted = mutex.withLock { running.add(id) }
+        if (!accepted) throw DuplicateTransferException(id)
+        return try {
+            operation()
+        } finally {
+            mutex.withLock { running.remove(id) }
+        }
+    }
+
+    companion object { val shared = TransferRunRegistry() }
+}
+
+class DuplicateTransferException(id: UUID) : IllegalStateException("Transfer $id is already running")
 
 class PartUploadException(
     val httpStatus: Int,

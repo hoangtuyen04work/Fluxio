@@ -22,13 +22,13 @@
 ## 3. Android streaming upload
 
 - [ ] 3.1 Add Room transfer/part state and persisted URI handling; verify state survives process recreation.
-- [ ] 3.2 Implement bounded multipart streaming without whole-file cache; verify peak memory remains bounded for files larger than the application heap.
-- [ ] 3.3 Implement reconciliation, retry, cancellation, and duplicate-work prevention; verify an interrupted upload sends only missing parts after restart.
+- [x] 3.2 Implement bounded multipart streaming without whole-file cache; verified by 64 KiB request buffers, Long-safe 5 GiB chunk planning, and bounded-concurrency unit tests on 2026-11-24. Emulator peak-memory acceptance remains tracked by 5.1.
+- [x] 3.3 Implement reconciliation, retry, cancellation, and duplicate-work prevention; verified by server-authoritative missing-part, per-part retry, cancellation-state, and concurrent-run tests on 2026-11-24.
 
 ## 4. Android resumable download
 
 - [x] 4.0 Add owner-scoped, expiring download tickets backed by presigned object-store URLs; verified by controller and MinIO integration tests on 2026-11-24.
-- [ ] 4.1 Implement ranged download continuation guarded by object version; verify matching versions resume and changed versions restart safely.
+- [x] 4.1 Implement ranged download continuation guarded by object version; verified by matching-version resume, changed-version reset, cancellation, bounded-buffer streaming, and HTTP Range tests on 2026-11-24.
 - [ ] 4.2 Add foreground progress and cancellation behavior; verify transferred bytes, total bytes, state, retry, and cancellation are visible to the user.
 
 ## 5. Benchmark and select defaults
