@@ -1,19 +1,19 @@
 # Tiến độ: Tối ưu hiệu năng truyền file
 
-> Cập nhật lần cuối: 2026-11-24  
-> Trạng thái change: **Đặc tả đã được phê duyệt, chưa bắt đầu lập trình**  
-> Việc tiếp theo: **Review implementation plan và bắt đầu backend foundation (2.1)**
+> Cập nhật lần cuối: 2026-11-24
+> Trạng thái change: **Đang triển khai backend control plane**
+> Việc tiếp theo: **Triển khai multipart storage boundary và API control plane (2.2)**
 
 ## Tổng quan
 
 | Hạng mục | Hoàn thành | Tổng số | Tiến độ | Trạng thái |
 |---|---:|---:|---:|---|
 | Hoàn thiện đặc tả trước lập trình | 7 | 7 | 100% | Hoàn thành |
-| Backend control plane | 0 | 3 | 0% | Chưa bắt đầu |
+| Backend control plane | 1 | 3 | 33% | Đang thực hiện |
 | Android streaming upload | 0 | 3 | 0% | Chưa bắt đầu |
 | Android resumable download | 0 | 2 | 0% | Chưa bắt đầu |
 | Benchmark và nghiệm thu | 0 | 3 | 0% | Chưa bắt đầu |
-| **Toàn bộ change** | **7** | **18** | **39%** | **Đang thực hiện** |
+| **Toàn bộ change** | **8** | **18** | **44%** | **Đang thực hiện** |
 
 Quy ước:
 
@@ -50,7 +50,7 @@ Cổng đặc tả đã vượt qua: mục 0.5 được phê duyệt, OpenSpec v
 
 ## Giai đoạn B — Backend control plane
 
-- [ ] Tạo PostgreSQL migrations cho file, upload session, idempotency, expiry và quota reservation; kiểm tra apply/rollback migration.
+- [x] Tạo PostgreSQL migrations cho file, upload session, idempotency, expiry và quota reservation; `UploadRepositoryIT` đã kiểm tra apply/clean migration, giới hạn 5 GiB, quota 20 GiB, concurrent reservation và terminal accounting exactly-once trên PostgreSQL 17.
 - [ ] Triển khai create upload, sign parts, list parts, complete và abort; bổ sung contract tests.
 - [ ] Triển khai cleanup cho upload hết hạn; xác minh cả MinIO multipart và database session được xử lý.
 

@@ -13,7 +13,12 @@ import tools.jackson.databind.json.JsonMapper;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = "fluxio.password=test-password")
+        properties = {
+            "fluxio.password=test-password",
+            "spring.autoconfigure.exclude="
+                    + "org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration,"
+                    + "org.springframework.boot.flyway.autoconfigure.FlywayAutoConfiguration"
+        })
 class FluxioApplicationTests {
     @LocalServerPort
     int port;

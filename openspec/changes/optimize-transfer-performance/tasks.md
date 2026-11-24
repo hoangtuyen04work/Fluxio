@@ -15,7 +15,7 @@
 
 ## 2. Control-plane transfer foundation
 
-- [ ] 2.1 Define PostgreSQL file and multipart-session migrations with idempotency, expiry, 5 GiB validation, and atomic 20 GiB quota reservation constraints; verify migration tests apply and roll back cleanly.
+- [x] 2.1 Define PostgreSQL file and multipart-session migrations with idempotency, expiry, 5 GiB validation, and atomic 20 GiB quota reservation constraints; verified by `UploadRepositoryIT` against PostgreSQL 17 on 2026-11-24.
 - [ ] 2.2 Implement create, sign-parts, list-parts, complete, and abort APIs; verify contract tests cover ownership, invalid state, duplicate completion, expiry, and ordered consecutive parts.
 - [ ] 2.3 Add incomplete-upload cleanup and verify expired MinIO multipart uploads and database sessions are both removed.
 
