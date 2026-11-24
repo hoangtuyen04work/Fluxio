@@ -27,6 +27,7 @@
 
 ## 4. Android resumable download
 
+- [x] 4.0 Add owner-scoped, expiring download tickets backed by presigned object-store URLs; verified by controller and MinIO integration tests on 2026-11-24.
 - [ ] 4.1 Implement ranged download continuation guarded by object version; verify matching versions resume and changed versions restart safely.
 - [ ] 4.2 Add foreground progress and cancellation behavior; verify transferred bytes, total bytes, state, retry, and cancellation are visible to the user.
 

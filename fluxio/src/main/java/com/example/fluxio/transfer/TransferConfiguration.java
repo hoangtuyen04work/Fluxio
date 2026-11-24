@@ -4,6 +4,7 @@ import com.example.fluxio.transfer.application.IdempotencyService;
 import com.example.fluxio.transfer.application.UploadApplicationService;
 import com.example.fluxio.transfer.application.UploadCleanupJob;
 import com.example.fluxio.transfer.application.UploadReconciliationService;
+import com.example.fluxio.file.application.DownloadTicketService;
 import com.example.fluxio.transfer.persistence.JdbcUploadRepository;
 import com.example.fluxio.transfer.persistence.UploadRepository;
 import com.example.fluxio.transfer.storage.MultipartObjectStore;
@@ -69,5 +70,11 @@ class TransferConfiguration {
     UploadCleanupJob uploadCleanupJob(
             UploadRepository uploads, MultipartObjectStore storage, Clock transferClock) {
         return new UploadCleanupJob(uploads, storage, transferClock, 100);
+    }
+
+    @Bean
+    DownloadTicketService downloadTicketService(
+            UploadRepository uploads, MultipartObjectStore storage, Clock transferClock) {
+        return new DownloadTicketService(uploads, storage, transferClock);
     }
 }

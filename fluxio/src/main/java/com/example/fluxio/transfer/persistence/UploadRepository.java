@@ -31,4 +31,6 @@ public interface UploadRepository {
     default List<UploadSessionRecord> findExpired(Instant now, int limit) { return List.of(); }
 
     default boolean claimExpiry(UUID uploadId) { return false; }
+
+    default Optional<StoredFileRecord> findFileById(UUID fileId, String ownerId) { return Optional.empty(); }
 }

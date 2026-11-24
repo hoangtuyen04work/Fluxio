@@ -220,6 +220,19 @@ public final class JdbcUploadRepository implements UploadRepository {
     }
 
     @Override
+    public Optional<StoredFileRecord> findFileById(UUID fileId, String ownerId) {
+        return jdbc.query(
+                "select * from stored_file where id = ? and owner_id = ? and state = 'ACTIVE'",
+                (result, row) -> new StoredFileRecord(
+                        result.getObject("id", UUID.class), result.getObject("source_upload_id", UUID.class),
+                        result.getString("owner_id"), result.getString("object_key"),
+                        result.getString("file_name"), result.getString("content_type"),
+                        result.getLong("size_bytes"), result.getString("object_version"),
+                        result.getString("object_etag"), result.getTimestamp("created_at").toInstant()),
+                fileId, ownerId).stream().findFirst();
+    }
+
+    @Override
     public boolean claimAbort(UUID uploadId, String ownerId) {
         Boolean changed = transactions.execute(status -> {
             UploadSessionRecord session = lock(uploadId);

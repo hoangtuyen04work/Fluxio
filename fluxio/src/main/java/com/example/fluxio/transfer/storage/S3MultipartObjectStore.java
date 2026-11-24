@@ -14,6 +14,8 @@ import software.amazon.awssdk.services.s3.model.CompleteMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.CompletedMultipartUpload;
 import software.amazon.awssdk.services.s3.model.CreateMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 import software.amazon.awssdk.services.s3.model.ListMultipartUploadsRequest;
 import software.amazon.awssdk.services.s3.model.ListPartsRequest;
 import software.amazon.awssdk.services.s3.model.UploadPartRequest;
@@ -100,6 +102,13 @@ public final class S3MultipartObjectStore implements MultipartObjectStore, AutoC
         return client.listMultipartUploads(ListMultipartUploadsRequest.builder()
                         .bucket(properties.bucket()).prefix(objectKey).build()).uploads().stream()
                 .anyMatch(upload -> upload.key().equals(objectKey) && upload.uploadId().equals(uploadId));
+    }
+
+    @Override
+    public URI presignDownload(String objectKey) {
+        var request = GetObjectRequest.builder().bucket(properties.bucket()).key(objectKey).build();
+        return URI.create(presigner.presignGetObject(GetObjectPresignRequest.builder()
+                .signatureDuration(properties.presignDuration()).getObjectRequest(request).build()).url().toString());
     }
 
     private static String stripQuotes(String value) {

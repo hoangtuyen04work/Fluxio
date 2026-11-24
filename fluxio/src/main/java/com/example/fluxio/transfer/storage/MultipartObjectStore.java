@@ -11,6 +11,7 @@ public interface MultipartObjectStore {
     void abort(String objectKey, String uploadId);
     ObjectMetadata headObject(String objectKey);
     boolean multipartExists(String objectKey, String uploadId);
+    default URI presignDownload(String objectKey) { throw new UnsupportedOperationException(); }
 
     record UploadedPart(int partNumber, String etag, long sizeBytes) {}
     record CompletedPart(int partNumber, String etag) {}
