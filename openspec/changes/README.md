@@ -10,6 +10,7 @@ Canonical current behavior is stored under `../specs/`. Target behavior is autho
 
 - [`optimize-transfer-performance/`](./optimize-transfer-performance/) is the active architecture change.
 - Progress is tracked in [`optimize-transfer-performance/progress.md`](./optimize-transfer-performance/progress.md).
+- The approved implementation roadmap is tracked in [`../../docs/superpowers/plans/2026-11-24-fluxio-implementation-roadmap.md`](../../docs/superpowers/plans/2026-11-24-fluxio-implementation-roadmap.md).
 - Four-member research and implementation ownership is documented in [`optimize-transfer-performance/team-work-packages.md`](./optimize-transfer-performance/team-work-packages.md).
 - This branch prioritizes upload/download throughput, bounded memory, multipart transfer, resumability, background execution, and measurable benchmarks.
 - Client-side file encryption, FXM1, E2EE key management, and cryptographic sharing are deliberately deferred to a later change.

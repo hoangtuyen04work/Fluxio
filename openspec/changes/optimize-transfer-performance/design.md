@@ -46,6 +46,16 @@ Concurrency and part size are configuration values. Initial benchmark candidates
 
 For this demonstration change, the normative protocol is [`contracts/benchmark-protocol.md`](./contracts/benchmark-protocol.md). It uses one fixed Android Studio Emulator, Good Wi-Fi and Interrupted profiles, and applies the throughput gate only to Good Wi-Fi. Physical-device, battery, radio, and thermal validation are deferred; therefore selected values are demonstration defaults rather than production-certified defaults.
 
+### Mandatory comparative baseline
+
+The evaluation MUST compare five modes defined by the benchmark protocol: `B0` whole-file staging and single PUT, `B1` direct fixed-buffer streaming and single PUT, `B2` sequential multipart, `B3` bounded parallel multipart, and `B4` the complete asynchronous/resumable solution. Application-layer encryption is disabled in every benchmark mode so the measurements isolate transfer architecture rather than cryptographic cost.
+
+`B0` is an intentionally unoptimized research control and is not required to pass the release memory, large-file, or recovery gates. A resource failure at a larger size is recorded as a baseline result rather than hidden or treated as a defect in the optimized path.
+
+### Optional segmented download experiment
+
+Sequential ranged download with version-guarded resume is required. Parallel segmented-range download is optional research owned by the download work package. If implemented, it MUST preserve object-version consistency, bounded concurrency, correct offset writes, and final checksum validation. Failure to implement or outperform sequential ranged download does not block the demonstration release.
+
 ### Resume by authoritative reconciliation
 
 Room stores local intent and progress. MinIO `ListParts` through the backend is authoritative for uploaded parts. Resume computes the missing set and obtains new short-lived URLs. Completion is idempotent and uses consecutive ordered part numbers.

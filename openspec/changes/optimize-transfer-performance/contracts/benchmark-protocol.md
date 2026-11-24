@@ -41,6 +41,20 @@ Throughput acceptance applies only to Good Wi-Fi. The Interrupted profile has co
 
 The initial reference candidate is 8 MiB with concurrency 2. It is not the selected default until it passes this protocol.
 
+## Mandatory comparison modes
+
+| Mode | Transfer behavior | Research purpose | Required scope |
+|---|---|---|---|
+| `B0` | Stage the complete unencrypted file in temporary storage, then use one PUT; no resume | Unoptimized current-style control and temporary-storage cost | Mandatory on 10 MiB and 100 MiB; attempt larger sizes only when emulator storage permits and record failure honestly |
+| `B1` | Direct fixed-buffer streaming with one PUT; no multipart or resume | Isolate the memory effect of streaming | Mandatory on all four sizes under Good Wi-Fi |
+| `B2` | Multipart streaming with concurrency 1 | Isolate chunking and part-level retry | Mandatory on all four sizes and both profiles |
+| `B3` | Multipart streaming with bounded concurrency 2 or 4 | Isolate parallelism | Mandatory on all four sizes and both profiles |
+| `B4` | Selected multipart configuration plus Room, asynchronous work, reconciliation, pause/cancel, and resume | Evaluate the complete proposed solution | Mandatory on all four sizes and both profiles |
+
+All modes transfer ordinary unencrypted bytes so encryption cost cannot confound the comparison. `B0` is research evidence, not a release candidate, and is exempt from optimized-path memory, 5 GiB completion, and resume gates. Its inability to handle a large file is a valid measured result.
+
+Parallel segmented download is optional. Required download evidence compares non-resumable sequential streaming with version-guarded ranged resume. If segmented download is implemented, report it as an additional mode without making it a release gate.
+
 ## Execution plan
 
 ### Candidate-selection round
@@ -52,6 +66,8 @@ The initial reference candidate is 8 MiB with concurrency 2. It is not the selec
 - Randomize candidate order within each profile to reduce host-temperature and background-load bias.
 
 This produces 90 measured candidate runs.
+
+Before candidate selection, run `B0` and `B1` on Good Wi-Fi to establish temporary-storage, memory, CPU, startup-time, and throughput baselines. After selecting the multipart candidate, run `B2`, `B3`, and `B4` so each optimization layer can be compared with the preceding mode.
 
 ### Acceptance round
 
@@ -81,6 +97,7 @@ This produces 90 measured candidate runs.
 | Control-plane latency | Create, sign, list, abort | p95 below 500 ms under the stated capacity |
 | Completion latency | Complete operation with healthy MinIO | p95 below 3 seconds under the stated capacity |
 | Control-plane reliability | Server-attributable errors | Below 1% |
+| Comparative evidence | `B0`–`B4` | Every mandatory mode has raw results for its required scope and the report attributes changes to streaming, chunking, parallelism, or async resume |
 
 CPU measurements on an emulator are valid only for regression comparisons on the identical recorded host. They are not a claim about physical-device CPU, thermal behavior, or battery consumption.
 
@@ -108,4 +125,6 @@ Compare only with the last accepted baseline produced on the same host/emulator 
 The benchmark output MUST preserve machine-readable CSV or JSON raw results plus a Markdown summary. Each measured run records build/commit, environment fingerprint, direction, file size, network profile, part size, concurrency, total duration, payload throughput, completion result, peak heap, average CPU, retry count, redundant bytes, reconciliation timing, checksum result, and error code.
 
 The summary reports count, median, p95, completion rate, pass/fail per gate, selected candidate, and known limitations. Battery and physical-device conclusions MUST be explicitly marked as not measured.
+
+The summary MUST include side-by-side `B0`–`B4` comparisons for startup time, completion time, payload throughput, peak heap, average CPU, temporary-storage bytes, redundant bytes, and recovery behavior where the metric applies. Optional segmented-download results are placed in a separate subsection and cannot replace required ranged-resume evidence.
 

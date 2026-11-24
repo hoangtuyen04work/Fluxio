@@ -1,9 +1,9 @@
 # Requirement Traceability Matrix
 
 > Change: `optimize-transfer-performance`  
-> Specification status: `AWAITING_APPROVAL`  
+> Specification status: `APPROVED`  
 > Implementation status: not started  
-> Last audit: 2026-11-22
+> Last audit: 2026-11-24
 
 ## Status model
 
@@ -41,6 +41,9 @@ All active rows are currently `SPECIFIED`. Removed requirements remain traceable
 | `HPFT-021` | Good Wi-Fi median throughput reaches 75% for files at least 100 MiB | Good Wi-Fi numeric gate | `5.1`, `5.2` | Five measured runs per acceptance size; median directional payload throughput passes | `SPECIFIED` |
 | `HPFT-022` | Interrupted transfers resume in all ten acceptance runs | Interrupted profile, retry/reconciliation gates | `5.1`–`5.3` | Two 30-second outages; 10/10 per size complete with retry bytes within bound | `SPECIFIED` |
 | `HPFT-023` | Emulator report states its evidence boundary | Benchmark environment/evidence format | `5.1`–`5.3` | Report records host/emulator fingerprint and excludes battery/physical-device claims | `SPECIFIED` |
+| `HPFT-024` | Mandatory `B0`–`B4` modes attribute each optimization layer | Comparative baseline section of [`benchmark-protocol.md`](./benchmark-protocol.md) | `5.1`, `5.2` | Raw/summary results compare startup, throughput, heap, CPU, temporary storage, retry, and recovery within each mode's required scope | `SPECIFIED` |
+| `HPFT-025` | `B0` resource failure is recorded rather than hidden | Baseline exemption and evidence rules | `5.1` | Oversized baseline attempt records failure/resource use without changing optimized-path gates | `SPECIFIED` |
+| `HPFT-026` | Optional segmented download does not block required ranged resume | Optional experiment boundary in design and benchmark protocol | `4.1`, optional research after `5.3` | Required range/resume tests pass whether or not segmented mode exists; optional results are reported separately | `SPECIFIED` |
 | `FTT-001` | File bytes move directly between Android and private MinIO | Presigned URLs, control/data-plane boundary | `2.2`, `3.2`, `4.1` | Network integration evidence shows backend handles JSON only, never file bodies | `SPECIFIED` |
 | `FTT-002` | Owner requests short-lived URLs only for valid missing parts | `POST /uploads/{id}/part-urls`, max 32 unique numbers | `2.2`, `3.3` | Ownership/range/state tests return `200`, `400`, `404`, `409`, or `410` as specified | `SPECIFIED` |
 | `FTT-003` | Consecutive confirmed parts complete exactly one file | Complete endpoint, idempotency record, `COMPLETING` recovery | `2.1`, `2.2` | Parallel/repeated complete calls return same `fileId`, one row, one quota conversion | `SPECIFIED` |
@@ -85,6 +88,7 @@ No OpenAPI operation is orphaned from an active requirement.
 - Cross-device handoff of an active upload is not intentionally supported.
 - Client-side encryption and FXM1 compatibility are deferred/removed from this change.
 - Exact demonstration part size and concurrency remain unset until tasks `5.1` and `5.2` produce evidence.
+- Segmented parallel download is optional and cannot delay or replace required ranged-resume evidence.
 
 ### Blocking gaps
 
@@ -100,11 +104,11 @@ No unresolved behavior-changing specification gap was found. Implementation and 
 - [x] API, data model, state machine, and benchmark protocol were audited for conflicts.
 - [x] Emulator-only demonstration scope and deferred production validation are explicit.
 - [x] `openspec validate --all` passes.
-- [ ] Project owner approves this design for implementation.
+- [x] Project owner approves this design for implementation.
 
-**Decision:** `AWAITING_APPROVAL`  
+**Decision:** `APPROVED`  
 **Approver:** Project owner  
-**Approval date:** pending
+**Approval date:** 2026-11-24
 
 Approval completes specification task `0.5`. It does not mark implementation or verification rows complete; those advance from `SPECIFIED` only when their code and evidence exist.
 

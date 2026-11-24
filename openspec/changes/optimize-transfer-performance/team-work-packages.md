@@ -27,7 +27,7 @@ Mỗi thành viên sở hữu một câu hỏi nghiên cứu, một nhóm thành
 |---:|---|---|
 | 1 | Streaming và tối ưu bộ nhớ | Streaming trực tiếp giảm RAM và loại bỏ file tạm toàn bộ như thế nào? |
 | 2 | Chunking, multipart upload và parallelism | Part size và concurrency ảnh hưởng throughput, CPU, RAM và retry ra sao? |
-| 3 | Download Range, resume và mạng gián đoạn | Range/segmented download giảm dữ liệu tải lại và phục hồi kết nối như thế nào? |
+| 3 | Download Range, resume và mạng gián đoạn | Ranged resume giảm dữ liệu tải lại như thế nào, và segmented download tùy chọn có mang lại lợi ích không? |
 | 4 | Xử lý bất đồng bộ, trạng thái và benchmark | WorkManager, Room và state machine giúp transfer sống sót sau process death như thế nào? |
 
 ## 3. Thành viên 1 — Streaming và tối ưu bộ nhớ
@@ -170,7 +170,7 @@ Xây dựng download streaming có thể tiếp tục từ dữ liệu đã ghi 
 - Resume khi object version không đổi.
 - Xóa/thay file tạm và tải lại từ byte 0 khi version thay đổi.
 - Pause giữ partial file; cancel xóa partial file.
-- Nhánh thí nghiệm segmented download với số segment/concurrency giới hạn.
+- Nhánh thí nghiệm segmented download tùy chọn với số segment/concurrency giới hạn.
 
 ### 5.4 Thành phần backend
 
@@ -184,7 +184,7 @@ Xây dựng download streaming có thể tiếp tục từ dữ liệu đã ghi 
 - Download tuần tự không resume làm baseline.
 - Streaming ranged download.
 - Resume sau hai lần mất mạng, mỗi lần 30 giây.
-- Sequential range so với segmented range nếu nhánh thử nghiệm khả thi trên đích lưu trữ Android.
+- Sequential range so với segmented range nếu nhóm chọn thực hiện nhánh tùy chọn trên đích lưu trữ Android.
 - Object version thay đổi giữa quá trình download.
 - Pause, resume và cancel.
 
@@ -194,7 +194,7 @@ Xây dựng download streaming có thể tiếp tục từ dữ liệu đã ghi 
 
 - Range downloader và download-ticket integration.
 - Test resume/version/cancel.
-- Bảng so sánh download baseline, ranged resume và segmented experiment.
+- Bảng so sánh download baseline và ranged resume; bổ sung segmented experiment nếu được triển khai.
 - Biểu đồ thời gian phục hồi và số byte phải tải lại.
 - Phần báo cáo phân tích lợi ích và chi phí của segmented download.
 
@@ -204,7 +204,7 @@ Xây dựng download streaming có thể tiếp tục từ dữ liệu đã ghi 
 - Changed version không bao giờ nối byte mới vào partial file cũ.
 - Cancel xóa partial file hoặc giữ `CANCELLING` đến khi cleanup xong.
 - File cuối có đúng size và checksum.
-- Kết luận có bằng chứng về việc có nên dùng segmented download trong bản demo hay không.
+- Không bắt buộc segmented download; nếu triển khai thì phải có kết luận bằng bằng chứng và không làm chậm nghiệm thu ranged resume bắt buộc.
 
 ## 6. Thành viên 4 — Xử lý bất đồng bộ, trạng thái và benchmark
 
@@ -273,8 +273,8 @@ Xây dựng orchestration giúp transfer tiếp tục sau process death, thể h
 
 | Mã | Chế độ | Thành viên chịu trách nhiệm chính |
 |---|---|---:|
-| `B0` | Truyền tuần tự, không chia part, không resume | 1 |
-| `B1` | Streaming tuần tự với buffer cố định | 1 |
+| `B0` | Ghi toàn bộ file thường vào temporary storage rồi single PUT; không resume | 1 |
+| `B1` | Direct streaming single PUT với buffer cố định; không tạo full temp copy | 1 |
 | `B2` | Chunking tuần tự, concurrency 1 | 2 |
 | `B3` | Chunking song song, concurrency 2 hoặc 4 | 2 |
 | `B4` | Chunking + bất đồng bộ + resume khi gián đoạn | 3 và 4 |
@@ -339,7 +339,7 @@ Không xem login UI, JWT cơ bản, cấu hình MinIO hoặc giao diện trang t
 | Streaming source/buffer | **Chính** | Dùng | Dùng | Đo |
 | Multipart upload | Hỗ trợ I/O | **Chính** | — | Điều phối |
 | Upload backend | — | **Chính** | — | Cleanup |
-| Range/segmented download | Hỗ trợ I/O | — | **Chính** | Điều phối |
+| Range download/segmented tùy chọn | Hỗ trợ I/O | — | **Chính** | Điều phối |
 | Download backend | — | — | **Chính** | — |
 | Room/WorkManager/state | Hỗ trợ | Hỗ trợ | Hỗ trợ | **Chính** |
 | Network interruption/recovery | — | Upload | Download | **Chính** |

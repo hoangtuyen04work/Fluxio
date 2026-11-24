@@ -1,19 +1,19 @@
 # Tiến độ: Tối ưu hiệu năng truyền file
 
-> Cập nhật lần cuối: 2026-11-22  
-> Trạng thái change: **Đang hoàn thiện đặc tả, chưa bắt đầu lập trình**  
-> Việc tiếp theo: **Xây dựng ma trận truy vết requirement → contract → test và phê duyệt thiết kế (0.5)**
+> Cập nhật lần cuối: 2026-11-24  
+> Trạng thái change: **Đặc tả đã được phê duyệt, chưa bắt đầu lập trình**  
+> Việc tiếp theo: **Review implementation plan và bắt đầu backend foundation (2.1)**
 
 ## Tổng quan
 
 | Hạng mục | Hoàn thành | Tổng số | Tiến độ | Trạng thái |
 |---|---:|---:|---:|---|
-| Hoàn thiện đặc tả trước lập trình | 6 | 7 | 86% | Đang thực hiện |
+| Hoàn thiện đặc tả trước lập trình | 7 | 7 | 100% | Hoàn thành |
 | Backend control plane | 0 | 3 | 0% | Chưa bắt đầu |
 | Android streaming upload | 0 | 3 | 0% | Chưa bắt đầu |
 | Android resumable download | 0 | 2 | 0% | Chưa bắt đầu |
 | Benchmark và nghiệm thu | 0 | 3 | 0% | Chưa bắt đầu |
-| **Toàn bộ change** | **6** | **18** | **33%** | **Đang thực hiện** |
+| **Toàn bộ change** | **7** | **18** | **39%** | **Đang thực hiện** |
 
 Quy ước:
 
@@ -40,13 +40,13 @@ Quy ước:
 - [x] Định nghĩa benchmark protocol và các ngưỡng nghiệm thu bằng số cho môi trường Android Emulator.
   - Bằng chứng: [`contracts/benchmark-protocol.md`](./contracts/benchmark-protocol.md)
   - Phạm vi đã chốt: Good Wi-Fi và Interrupted; throughput chỉ nghiệm thu trên Good Wi-Fi; đo CPU nhưng không đo pin.
-- [ ] Xây dựng ma trận truy vết requirement → API/data contract → test và phê duyệt thiết kế cuối cùng.
+- [x] Xây dựng ma trận truy vết requirement → API/data contract → test và phê duyệt thiết kế cuối cùng.
   - Ma trận đã tạo: [`contracts/traceability-matrix.md`](./contracts/traceability-matrix.md)
-  - Trạng thái: đang chờ project owner phê duyệt thiết kế.
+  - Trạng thái: project owner đã phê duyệt ngày 2026-11-24.
 
 ### Cổng cho phép lập trình
 
-Chỉ chuyển sang Giai đoạn B khi cả ba mục còn lại của Giai đoạn A được đánh dấu hoàn thành, toàn bộ OpenSpec validation thành công, và không còn quyết định hành vi ảnh hưởng tới implementation.
+Cổng đặc tả đã vượt qua: mục 0.5 được phê duyệt, OpenSpec validation thành công và các giới hạn demo đã được khóa.
 
 ## Giai đoạn B — Backend control plane
 
@@ -85,6 +85,8 @@ Chỉ chuyển sang Giai đoạn B khi cả ba mục còn lại của Giai đo�
 | FXM1 test data | Xóa, không xây migration/compatibility path |
 | E2EE và client-side encryption | Hoãn sang OpenSpec change trong tương lai |
 | Microservices, Kafka, Redis | Không sử dụng nếu chưa có bằng chứng cần thiết |
+| Comparative baseline | `B0`–`B4` là bằng chứng bắt buộc |
+| Segmented download | Thí nghiệm tùy chọn, không chặn nghiệm thu |
 
 ## Tài liệu nguồn
 
@@ -93,6 +95,11 @@ Chỉ chuyển sang Giai đoạn B khi cả ba mục còn lại của Giai đo�
 - Phân công nhóm 4 thành viên: [`team-work-packages.md`](./team-work-packages.md)
 - Checklist thực thi chi tiết: [`tasks.md`](./tasks.md)
 - Delta requirement chính: [`specs/high-performance-file-transfer/spec.md`](./specs/high-performance-file-transfer/spec.md)
+- Roadmap triển khai đã phê duyệt: [`../../../docs/superpowers/plans/2026-11-24-fluxio-implementation-roadmap.md`](../../../docs/superpowers/plans/2026-11-24-fluxio-implementation-roadmap.md)
+- Plan thành viên 1 — streaming nền tảng: [`../../../docs/superpowers/plans/2026-11-24-fluxio-member-1-streaming.md`](../../../docs/superpowers/plans/2026-11-24-fluxio-member-1-streaming.md)
+- Plan thành viên 2 — multipart upload: [`../../../docs/superpowers/plans/2026-11-24-fluxio-member-2-multipart-upload.md`](../../../docs/superpowers/plans/2026-11-24-fluxio-member-2-multipart-upload.md)
+- Plan thành viên 3 — resumable download: [`../../../docs/superpowers/plans/2026-11-24-fluxio-member-3-resumable-download.md`](../../../docs/superpowers/plans/2026-11-24-fluxio-member-3-resumable-download.md)
+- Plan thành viên 4 — bất đồng bộ và benchmark: [`../../../docs/superpowers/plans/2026-11-24-fluxio-member-4-async-benchmark.md`](../../../docs/superpowers/plans/2026-11-24-fluxio-member-4-async-benchmark.md)
 
 ## Quy tắc cập nhật
 

@@ -6,7 +6,7 @@
 - [x] 0.2 Define PostgreSQL and Android Room data models, quota invariants, indexes, transaction boundaries, and recovery behavior in `contracts/data-model.md`.
 - [x] 0.3 Define explicit server and Android transfer state-transition tables, including allowed commands, failure recovery, and terminal-state behavior in `contracts/state-machines.md`.
 - [x] 0.4 Define the emulator benchmark protocol and numeric demonstration gates for Good Wi-Fi throughput, completion rate, memory, CPU, recovery, and retry cost in `contracts/benchmark-protocol.md`; explicitly exclude battery and physical-device certification.
-- [ ] 0.5 Build a requirement-to-contract-to-test traceability matrix and obtain final design sign-off before implementation. Matrix: `contracts/traceability-matrix.md`; project-owner approval pending.
+- [x] 0.5 Build a requirement-to-contract-to-test traceability matrix, include mandatory `B0`–`B4` baseline evidence and the optional segmented-download boundary, and obtain final design sign-off before implementation. Approved in `contracts/traceability-matrix.md` on 2026-11-24.
 
 ## 1. Resolve release boundaries
 
@@ -32,9 +32,11 @@
 
 ## 5. Benchmark and select defaults
 
-- [ ] 5.1 Build the repeatable fixed-emulator benchmark harness for 10 MiB, 100 MiB, 1 GiB, and 5 GiB files under Good Wi-Fi and Interrupted profiles; verify it reports throughput where applicable, completion rate, peak memory, CPU, recovery time, and retry cost.
+- [ ] 5.1 Build the repeatable fixed-emulator benchmark harness with mandatory `B0`–`B4` modes for 10 MiB, 100 MiB, 1 GiB, and 5 GiB files under each mode's required Good Wi-Fi/Interrupted scope; verify it reports startup time, throughput where applicable, completion rate, peak memory, CPU, temporary-storage bytes, recovery time, and retry cost.
 - [ ] 5.2 Measure part sizes 5/8/16 MiB with concurrency 1/2/4, select defaults from evidence, and record the selected values and rationale in the spec and design.
 - [ ] 5.3 Run end-to-end upload, resume, complete, download, cancel, and cleanup validation against MinIO; verify all OpenSpec scenarios have corresponding evidence.
+
+Optional research: implement and measure bounded parallel segmented-range download only after the required sequential ranged-resume path passes; omission does not block the change.
 
 ## Workflow follow-up
 

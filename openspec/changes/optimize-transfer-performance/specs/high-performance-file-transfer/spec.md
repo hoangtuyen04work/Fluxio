@@ -156,3 +156,22 @@ Default part size and concurrency for the demonstration build SHALL be selected 
 
 - **WHEN** benchmark results are published for this change
 - **THEN** they identify the fixed host and emulator configuration and explicitly state that physical-device and battery behavior were not measured
+
+### Requirement: Comparative optimization baseline
+
+The demonstration evaluation SHALL compare the mandatory `B0` through `B4` modes defined in `contracts/benchmark-protocol.md` using ordinary unencrypted bytes so that the effects of whole-file staging, direct streaming, chunking, bounded parallelism, and asynchronous resume can be attributed separately. Segmented parallel download MAY be evaluated as an optional experiment but SHALL NOT replace or block the required version-guarded ranged download path.
+
+#### Scenario: Compare optimization layers
+
+- **WHEN** benchmark evidence for the demonstration is finalized
+- **THEN** it contains raw and summarized results for every mandatory baseline mode within that mode's required file-size/network scope and explains the measured change introduced by each optimization layer
+
+#### Scenario: Unoptimized baseline cannot process a large file
+
+- **WHEN** `B0` cannot stage or transfer a larger test file within emulator memory or temporary-storage limits
+- **THEN** the failure and consumed resources are recorded as baseline evidence without weakening the acceptance gates for `B1` through `B4`
+
+#### Scenario: Segmented download is not implemented
+
+- **WHEN** the optional segmented parallel download experiment is omitted
+- **THEN** the demonstration remains acceptable if required sequential streaming, version-guarded ranged resume, interruption recovery, and benchmark evidence pass
