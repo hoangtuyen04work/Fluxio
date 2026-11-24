@@ -183,6 +183,20 @@ Set-Location D:\KMA\Fluxio\Fluxio-Android
 
 ## 5. End-to-end Android ↔ Backend ↔ MinIO
 
+### 5.0 Khởi động môi trường E2E
+
+```powershell
+Set-Location D:\KMA\Fluxio
+.\scripts\e2e\start-e2e.ps1
+.\scripts\e2e\verify-e2e.ps1
+
+Set-Location .\fluxio
+$env:SPRING_PROFILES_ACTIVE = "e2e"
+mvn spring-boot:run
+```
+
+Chỉ bắt đầu E2E-01 khi PostgreSQL và MinIO đều `healthy`, `minio-init` exit `0`, Flyway báo schema `v2`, và đăng nhập backend thành công. Android Emulator dùng server URL `http://10.0.2.2:8080/`; presigned data-plane URL phải dùng host `10.0.2.2:9000`.
+
 ### E2E-01 — Upload và complete bình thường
 
 1. Khởi động PostgreSQL, MinIO và backend bằng cấu hình test của dự án.

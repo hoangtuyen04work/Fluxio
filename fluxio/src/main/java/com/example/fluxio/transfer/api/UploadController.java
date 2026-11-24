@@ -14,7 +14,7 @@ import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -27,7 +27,7 @@ import tools.jackson.databind.json.JsonMapper;
 
 @RestController
 @RequestMapping("/api/v1/uploads")
-@ConditionalOnBean(UploadApplicationService.class)
+@ConditionalOnProperty(name = "spring.datasource.url")
 public final class UploadController {
     private static final Duration IDEMPOTENCY_LIFETIME = Duration.ofHours(24);
 

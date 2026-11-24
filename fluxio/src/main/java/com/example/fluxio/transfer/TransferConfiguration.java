@@ -14,16 +14,14 @@ import java.time.Clock;
 import java.time.Duration;
 import javax.sql.DataSource;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.support.TransactionTemplate;
 
 @Configuration
-@ConditionalOnBean(DataSource.class)
-@EnableScheduling
+@ConditionalOnProperty(name = "spring.datasource.url")
 class TransferConfiguration {
     @Bean
     Clock transferClock() {
@@ -43,12 +41,13 @@ class TransferConfiguration {
     @Bean(destroyMethod = "close")
     MultipartObjectStore multipartObjectStore(
             @Value("${fluxio.storage.endpoint}") String endpoint,
+            @Value("${fluxio.storage.public-endpoint:${fluxio.storage.endpoint}}") String publicEndpoint,
             @Value("${fluxio.storage.region:us-east-1}") String region,
             @Value("${fluxio.storage.access-key}") String accessKey,
             @Value("${fluxio.storage.secret-key}") String secretKey,
             @Value("${fluxio.storage.bucket}") String bucket) {
         return new S3MultipartObjectStore(new StorageProperties(
-                endpoint, region, accessKey, secretKey, bucket,
+                endpoint, publicEndpoint, region, accessKey, secretKey, bucket,
                 Duration.ofSeconds(30), Duration.ofMinutes(15)));
     }
 

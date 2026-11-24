@@ -1,0 +1,64 @@
+name: fluxio-e2e
+
+services:
+  postgres:
+    image: fluxio-e2e-postgres:17
+    build:
+      context: ./infra/e2e/postgres
+    environment:
+      POSTGRES_DB: ${FLUXIO_DB_NAME:-fluxio}
+      POSTGRES_USER: ${FLUXIO_DB_USER:-fluxio}
+      POSTGRES_PASSWORD: ${FLUXIO_DB_PASSWORD:-fluxio-local-db}
+    ports:
+      - "${FLUXIO_BIND_ADDRESS:-127.0.0.1}:${FLUXIO_DB_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+
+  minio:
+    image: fluxio-e2e-minio:2025.5.24
+    build:
+      context: ./infra/e2e/minio
+    environment:
+      MINIO_ROOT_USER: ${FLUXIO_STORAGE_ACCESS_KEY:-local-access}
+      MINIO_ROOT_PASSWORD: ${FLUXIO_STORAGE_SECRET_KEY:-local-secret}
+    ports:
+      - "${FLUXIO_BIND_ADDRESS:-127.0.0.1}:${FLUXIO_STORAGE_PORT:-9000}:9000"
+      - "${FLUXIO_BIND_ADDRESS:-127.0.0.1}:${FLUXIO_STORAGE_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio-data:/bitnami/minio/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --silent http://127.0.0.1:9000/minio/health/live > /dev/null"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+
+  minio-init:
+    image: fluxio-e2e-minio:2025.5.24
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${FLUXIO_STORAGE_ACCESS_KEY:-local-access}
+      MINIO_ROOT_PASSWORD: ${FLUXIO_STORAGE_SECRET_KEY:-local-secret}
+      MINIO_BUCKET: ${FLUXIO_STORAGE_BUCKET:-fluxio}
+    entrypoint: ["/bin/bash", "-ec"]
+    command:
+      - |
+        mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}"
+        mc mb --ignore-existing "local/$${MINIO_BUCKET}"
+        mc anonymous set private "local/$${MINIO_BUCKET}"
+        mc stat "local/$${MINIO_BUCKET}"
+    restart: "no"
+
+volumes:
+  postgres-data:
+    name: fluxio-e2e-postgres-data
+  minio-data:
+    name: fluxio-e2e-minio-data

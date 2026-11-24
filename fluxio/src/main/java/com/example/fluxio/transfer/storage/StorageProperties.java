@@ -4,9 +4,21 @@ import java.time.Duration;
 
 public record StorageProperties(
         String endpoint,
+        String publicEndpoint,
         String region,
         String accessKey,
         String secretKey,
         String bucket,
         Duration apiTimeout,
-        Duration presignDuration) {}
+        Duration presignDuration) {
+    public StorageProperties(
+            String endpoint,
+            String region,
+            String accessKey,
+            String secretKey,
+            String bucket,
+            Duration apiTimeout,
+            Duration presignDuration) {
+        this(endpoint, endpoint, region, accessKey, secretKey, bucket, apiTimeout, presignDuration);
+    }
+}

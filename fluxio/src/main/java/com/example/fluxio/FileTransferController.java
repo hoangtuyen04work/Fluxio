@@ -25,7 +25,7 @@ class FileTransferController {
     private final MinioClient storage;
     private final String bucket;
 
-    FileTransferController(@Value("${fluxio.storage.endpoint}") String endpoint,
+    FileTransferController(@Value("${fluxio.storage.public-endpoint:${fluxio.storage.endpoint}}") String endpoint,
                            @Value("${fluxio.storage.access-key}") String accessKey,
                            @Value("${fluxio.storage.secret-key}") String secretKey,
                            @Value("${fluxio.storage.bucket}") String bucket) {

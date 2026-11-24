@@ -43,7 +43,7 @@ public final class S3MultipartObjectStore implements MultipartObjectStore, AutoC
                         .build())
                 .build();
         this.presigner = S3Presigner.builder()
-                .endpointOverride(URI.create(properties.endpoint()))
+                .endpointOverride(URI.create(properties.publicEndpoint()))
                 .region(Region.of(properties.region()))
                 .credentialsProvider(credentials)
                 .serviceConfiguration(service)

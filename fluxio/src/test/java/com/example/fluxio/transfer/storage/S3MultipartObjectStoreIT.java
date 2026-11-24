@@ -88,6 +88,25 @@ class S3MultipartObjectStoreIT {
         assertThat(store.multipartExists(key, uploadId)).isFalse();
     }
 
+    @Test
+    void signsDataPlaneUrlsWithPublicEndpoint() {
+        var properties = new StorageProperties(
+                endpoint(), "http://10.0.2.2:9000", Region.US_EAST_1.id(),
+                ACCESS_KEY, SECRET_KEY, BUCKET,
+                Duration.ofSeconds(10), Duration.ofMinutes(15));
+        try (var publicStore = new S3MultipartObjectStore(properties)) {
+            String key = "owners/alice/public-url.bin";
+            String uploadId = publicStore.createMultipart(key, "application/octet-stream");
+
+            assertThat(publicStore.presignUploadPart(key, uploadId, 1))
+                    .hasHost("10.0.2.2").hasPort(9000);
+            assertThat(publicStore.presignDownload(key))
+                    .hasHost("10.0.2.2").hasPort(9000);
+
+            publicStore.abort(key, uploadId);
+        }
+    }
+
     private String put(URI signedUrl, byte[] body) throws Exception {
         var response = HttpClient.newHttpClient().send(
                 HttpRequest.newBuilder(signedUrl)

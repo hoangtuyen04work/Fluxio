@@ -1,0 +1,21 @@
+server:
+  address: 0.0.0.0
+  port: ${FLUXIO_BACKEND_PORT:8080}
+
+spring:
+  datasource:
+    url: jdbc:postgresql://127.0.0.1:${FLUXIO_DB_PORT:5432}/${FLUXIO_DB_NAME:fluxio}
+    username: ${FLUXIO_DB_USER:fluxio}
+    password: ${FLUXIO_DB_PASSWORD:fluxio-local-db}
+  flyway:
+    enabled: true
+
+fluxio:
+  username: ${FLUXIO_USERNAME:fluxio}
+  password: ${FLUXIO_PASSWORD:fluxio-local-password}
+  storage:
+    endpoint: http://127.0.0.1:${FLUXIO_STORAGE_PORT:9000}
+    public-endpoint: http://10.0.2.2:${FLUXIO_STORAGE_PORT:9000}
+    access-key: ${FLUXIO_STORAGE_ACCESS_KEY:local-access}
+    secret-key: ${FLUXIO_STORAGE_SECRET_KEY:local-secret}
+    bucket: ${FLUXIO_STORAGE_BUCKET:fluxio}

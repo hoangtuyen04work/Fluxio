@@ -70,3 +70,38 @@ Cần JDK 21, Docker Desktop và Android Studio với Android SDK 36.
 
 Luồng chạy hiện tại chỉ dùng để đối chiếu baseline. Hành vi mục tiêu phải theo active OpenSpec change.
 
+## Chạy hạ tầng E2E PostgreSQL + MinIO
+
+Docker chỉ chạy hạ tầng; backend vẫn chạy trực tiếp trên Windows để dễ debug.
+
+```powershell
+Set-Location D:\KMA\Fluxio
+.\scripts\e2e\start-e2e.ps1
+.\scripts\e2e\verify-e2e.ps1
+```
+
+Hai image cục bộ được build tự động:
+
+- `fluxio-e2e-postgres:17`
+- `fluxio-e2e-minio:2025.5.24`
+
+Sau khi hạ tầng healthy, mở terminal khác và chạy backend:
+
+```powershell
+Set-Location D:\KMA\Fluxio\fluxio
+$env:SPRING_PROFILES_ACTIVE = "e2e"
+mvn spring-boot:run
+```
+
+| Dịch vụ | Địa chỉ/thông tin |
+|---|---|
+| Backend từ Android Emulator | `http://10.0.2.2:8080/` |
+| PostgreSQL từ backend | `127.0.0.1:5432`, database/user `fluxio` |
+| MinIO API từ backend | `http://127.0.0.1:9000` |
+| MinIO data plane từ Android | `http://10.0.2.2:9000` |
+| MinIO Console | `http://127.0.0.1:9001` |
+| Tài khoản ứng dụng | `fluxio` / `fluxio-local-password` |
+| MinIO local | `local-access` / `local-secret` |
+
+Dừng hạ tầng và giữ dữ liệu bằng `.\scripts\e2e\stop-e2e.ps1`. Chỉ dùng tham số `-RemoveVolumes` khi chủ động muốn xóa toàn bộ dữ liệu E2E.
+
