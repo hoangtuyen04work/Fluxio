@@ -11,12 +11,16 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.HashSet;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.UUID;
 
 public final class UploadApplicationService {
     private static final Duration INITIALIZATION_DEADLINE = Duration.ofMinutes(5);
     private static final Duration ACTIVE_LIFETIME = Duration.ofHours(24);
+    private static final Duration PART_URL_LIFETIME = Duration.ofMinutes(15);
+    private static final int MAX_SIGNED_PARTS = 32;
 
     private final UploadRepository uploads;
     private final MultipartObjectStore storage;
@@ -77,6 +81,39 @@ public final class UploadApplicationService {
         }
     }
 
+    public SignedParts signParts(String ownerId, UUID uploadId, List<Integer> partNumbers) {
+        UploadSessionRecord session = activeSession(ownerId, uploadId);
+        if (partNumbers == null || partNumbers.isEmpty() || partNumbers.size() > MAX_SIGNED_PARTS
+                || new HashSet<>(partNumbers).size() != partNumbers.size()
+                || partNumbers.stream().anyMatch(part -> part == null || part < 1 || part > session.partCount())) {
+            throw new InvalidPartRequestException();
+        }
+
+        List<SignedPart> parts = partNumbers.stream()
+                .map(part -> new SignedPart(
+                        part,
+                        storage.presignUploadPart(session.objectKey(), session.storageUploadId(), part)))
+                .toList();
+        return new SignedParts(uploadId, clock.instant().plus(PART_URL_LIFETIME), parts);
+    }
+
+    public List<MultipartObjectStore.UploadedPart> listParts(String ownerId, UUID uploadId) {
+        UploadSessionRecord session = activeSession(ownerId, uploadId);
+        return storage.listParts(session.objectKey(), session.storageUploadId());
+    }
+
+    private UploadSessionRecord activeSession(String ownerId, UUID uploadId) {
+        UploadSessionRecord session = uploads.findByOwner(uploadId, ownerId)
+                .orElseThrow(UploadNotFoundException::new);
+        if (!session.expiresAt().isAfter(clock.instant())) {
+            throw new UploadExpiredException();
+        }
+        if (session.state() != com.example.fluxio.transfer.domain.UploadState.ACTIVE) {
+            throw new InvalidUploadStateException();
+        }
+        return session;
+    }
+
     private static String objectKey(String ownerId, UUID fileId) {
         String owner = Base64.getUrlEncoder().withoutPadding()
                 .encodeToString(ownerId.getBytes(StandardCharsets.UTF_8));
@@ -93,4 +130,8 @@ public final class UploadApplicationService {
             throw new IllegalStateException("SHA-256 is unavailable", impossible);
         }
     }
+
+    public record SignedPart(int partNumber, java.net.URI url) {}
+
+    public record SignedParts(UUID uploadId, Instant expiresAt, List<SignedPart> parts) {}
 }

@@ -49,6 +49,46 @@ class UploadApplicationServiceTest {
         assertThat(repository.released).containsExactly(repository.created.id());
     }
 
+    @Test
+    void signsAtMostDistinctInRangePartsForAnOwnedActiveUpload() {
+        var repository = new RecordingRepository();
+        var storage = new RecordingStore();
+        var service = service(repository, storage);
+        var session = service.create("alice", "report.zip", "application/zip", 20_000_000);
+
+        var signed = service.signParts("alice", session.id(), List.of(1, 3));
+
+        assertThat(signed.uploadId()).isEqualTo(session.id());
+        assertThat(signed.expiresAt()).isEqualTo(NOW.plusSeconds(15 * 60));
+        assertThat(signed.parts()).extracting(UploadApplicationService.SignedPart::partNumber)
+                .containsExactly(1, 3);
+        assertThat(signed.parts()).extracting(part -> part.url().toString())
+                .containsExactly("http://storage/part/1", "http://storage/part/3");
+
+        assertThatThrownBy(() -> service.signParts("alice", session.id(), List.of(1, 1)))
+                .isInstanceOf(InvalidPartRequestException.class);
+        assertThatThrownBy(() -> service.signParts("alice", session.id(), List.of(4)))
+                .isInstanceOf(InvalidPartRequestException.class);
+        assertThatThrownBy(() -> service.signParts(
+                        "alice", session.id(), java.util.stream.IntStream.rangeClosed(1, 33).boxed().toList()))
+                .isInstanceOf(InvalidPartRequestException.class);
+    }
+
+    @Test
+    void listsStoragePartsAsAuthorityAndConcealsForeignUploads() {
+        var repository = new RecordingRepository();
+        var storage = new RecordingStore();
+        var service = service(repository, storage);
+        var session = service.create("alice", "report.zip", "application/zip", 20_000_000);
+        storage.uploadedParts = List.of(new MultipartObjectStore.UploadedPart(2, "etag-2", 3_222_784));
+
+        var listed = service.listParts("alice", session.id());
+
+        assertThat(listed).containsExactlyElementsOf(storage.uploadedParts);
+        assertThatThrownBy(() -> service.listParts("bob", session.id()))
+                .isInstanceOf(UploadNotFoundException.class);
+    }
+
     private UploadApplicationService service(RecordingRepository repository, RecordingStore storage) {
         return new UploadApplicationService(
                 repository,
@@ -90,14 +130,17 @@ class UploadApplicationServiceTest {
     private static final class RecordingStore implements MultipartObjectStore {
         private final List<String> createdKeys = new ArrayList<>();
         private boolean failCreate;
+        private List<UploadedPart> uploadedParts = List.of();
 
         @Override public String createMultipart(String objectKey, String contentType) {
             createdKeys.add(objectKey);
             if (failCreate) throw new IllegalStateException("storage unavailable");
             return "storage-upload-1";
         }
-        @Override public URI presignUploadPart(String key, String id, int part) { throw new UnsupportedOperationException(); }
-        @Override public List<UploadedPart> listParts(String key, String id) { return List.of(); }
+        @Override public URI presignUploadPart(String key, String id, int part) {
+            return URI.create("http://storage/part/" + part);
+        }
+        @Override public List<UploadedPart> listParts(String key, String id) { return uploadedParts; }
         @Override public CompletedObject complete(String key, String id, List<CompletedPart> parts) { throw new UnsupportedOperationException(); }
         @Override public void abort(String key, String id) {}
         @Override public ObjectMetadata headObject(String key) { throw new UnsupportedOperationException(); }
