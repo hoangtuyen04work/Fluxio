@@ -62,6 +62,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.fluxio.ui.theme.FluxioTheme
+import com.example.fluxio.diagnostics.AppDiagnostics
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -93,6 +94,7 @@ class TransferViewModel(application: Application) : AndroidViewModel(application
     private var token: String? by mutableStateOf(null)
     private var historyKey = ""
     private var pendingDownload: UUID? = null
+    private val diagnostics = AppDiagnostics(application)
 
     var username by mutableStateOf("fluxio")
     var password by mutableStateOf("")
@@ -118,9 +120,11 @@ class TransferViewModel(application: Application) : AndroidViewModel(application
         fileId = preferences.getString(historyKey, "").orEmpty()
         isError = false
         status = "Signed in."
+        diagnostics.system("INFO", "sign in succeeded; backend=$backendUrl; username=$account")
     }
 
     fun signOut() {
+        diagnostics.system("INFO", "signed out")
         token = null
         client = null
         isError = false
@@ -134,13 +138,15 @@ class TransferViewModel(application: Application) : AndroidViewModel(application
         val api = checkNotNull(client)
         val session = checkNotNull(token)
         val id = withContext(Dispatchers.IO) {
-            if (uploadMode == UploadMode.NORMAL) api.uploadSingle(session, source)
-            else api.uploadMultipart(session, source)
+            diagnostics.recordUpload(uploadMode.name, source) {
+                if (uploadMode == UploadMode.NORMAL) api.uploadSingle(session, source)
+                else api.uploadMultipart(session, source)
+            }
         }
         fileId = id.toString()
         preferences.edit().putString(historyKey, fileId).apply()
         isError = false
-        status = "Upload complete. Keep the file ID to restore it later."
+        status = "Upload complete. Logs: ${diagnostics.performanceLogFile.absolutePath}"
     }
 
     fun prepareDownload(): Boolean {
@@ -178,6 +184,7 @@ class TransferViewModel(application: Application) : AndroidViewModel(application
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
+                diagnostics.system("ERROR", "operation failed; action=$message", error)
                 isError = true
                 status = error.localizedMessage ?: "Operation failed."
             } finally {

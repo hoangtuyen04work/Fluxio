@@ -69,6 +69,23 @@ Cần JDK 21, Docker Desktop và Android Studio với Android SDK 36.
 3. Mở [`Fluxio-Android/`](./Fluxio-Android/) trong Android Studio và chạy debug trên emulator.
 4. Đăng nhập bằng URL `http://10.0.2.2:8080/`, username `fluxio` và mật khẩu đã cấu hình.
 
+### Lấy log Android và số liệu upload
+
+Mỗi lần upload, app ghi nối tiếp hai file trong thư mục app-specific của emulator:
+
+- `android-system.log`: sự kiện app, đăng nhập, bắt đầu/kết thúc upload và lỗi.
+- `upload-performance.csv`: mỗi upload là một dòng gồm mode, kích thước file, thời gian, throughput, CPU, heap, network bytes và trạng thái.
+
+Lấy log về máy Windows sau khi chạy:
+
+```powershell
+New-Item -ItemType Directory -Force .\benchmark-logs | Out-Null
+adb pull /sdcard/Android/data/com.example.fluxio/files/logs/android-system.log .\benchmark-logs\
+adb pull /sdcard/Android/data/com.example.fluxio/files/logs/upload-performance.csv .\benchmark-logs\
+```
+
+Hai file được append qua nhiều lần chạy. Xóa dữ liệu app hoặc xóa hai file nếu cần bắt đầu một đợt đo mới.
+
 Luồng chạy hiện tại chỉ dùng để đối chiếu baseline. Hành vi mục tiêu phải theo active OpenSpec change.
 
 ## Chạy hạ tầng E2E PostgreSQL + MinIO
