@@ -4,6 +4,7 @@ import com.example.fluxio.transfer.application.IdempotencyService;
 import com.example.fluxio.transfer.application.UploadApplicationService;
 import com.example.fluxio.transfer.application.UploadCleanupJob;
 import com.example.fluxio.transfer.application.UploadReconciliationService;
+import com.example.fluxio.transfer.application.SingleUploadApplicationService;
 import com.example.fluxio.file.application.DownloadTicketService;
 import com.example.fluxio.transfer.persistence.JdbcUploadRepository;
 import com.example.fluxio.transfer.persistence.UploadRepository;
@@ -57,6 +58,12 @@ class TransferConfiguration {
             MultipartObjectStore storage,
             Clock transferClock) {
         return new UploadApplicationService(uploads, storage, transferClock, 8L * 1024 * 1024);
+    }
+
+    @Bean
+    SingleUploadApplicationService singleUploadApplicationService(
+            UploadRepository uploads, MultipartObjectStore storage, Clock transferClock) {
+        return new SingleUploadApplicationService(uploads, storage, transferClock);
     }
 
     @Bean

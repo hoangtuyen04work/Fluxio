@@ -12,6 +12,7 @@ security:
   - bearerAuth: []
 tags:
   - name: Uploads
+  - name: Single Uploads
   - name: Files
 paths:
   /uploads:
@@ -138,6 +139,86 @@ paths:
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problem' }
+  /single-uploads:
+    post:
+      tags: [Single Uploads]
+      operationId: createSingleUpload
+      summary: Create or replay a B1 direct single-PUT session
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateUploadRequest' }
+      responses:
+        '201':
+          description: A single-PUT session and quota reservation were created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SingleUploadSession' }
+        '200':
+          description: The same idempotent request was replayed with a fresh URL when needed.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SingleUploadSession' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/IdempotencyConflict' }
+        '413':
+          description: Declared file size exceeds 5 GiB.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '422': { $ref: '#/components/responses/QuotaExceeded' }
+  /single-uploads/{uploadId}/url:
+    post:
+      tags: [Single Uploads]
+      operationId: refreshSingleUploadUrl
+      summary: Issue a fresh whole-object PUT URL; partial PUTs never resume
+      parameters:
+        - $ref: '#/components/parameters/UploadId'
+      responses:
+        '200':
+          description: A fresh short-lived URL for a new whole-object PUT attempt.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SinglePutTicket' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/InvalidUploadState' }
+        '410': { $ref: '#/components/responses/UploadExpired' }
+  /single-uploads/{uploadId}/complete:
+    post:
+      tags: [Single Uploads]
+      operationId: completeSingleUpload
+      summary: Verify the exact-size object and finalize shared file metadata
+      parameters:
+        - $ref: '#/components/parameters/UploadId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Single PUT is complete; duplicate completion returns the same file.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FileMetadata' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/InvalidUploadState' }
+        '410': { $ref: '#/components/responses/UploadExpired' }
+  /single-uploads/{uploadId}:
+    delete:
+      tags: [Single Uploads]
+      operationId: abortSingleUpload
+      summary: Abort B1, delete any object, and release quota exactly once
+      parameters:
+        - $ref: '#/components/parameters/UploadId'
+      responses:
+        '204': { description: Single upload is aborted, or had already been aborted. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/InvalidUploadState' }
   /files/{fileId}/download-ticket:
     post:
       tags: [Files]
@@ -246,6 +327,24 @@ components:
         partSizeBytes: { type: integer, format: int64 }
         partCount: { type: integer, minimum: 1, maximum: 10000 }
         expiresAt: { type: string, format: date-time }
+    SingleUploadSession:
+      type: object
+      required: [uploadId, fileId, state, sizeBytes, put]
+      properties:
+        uploadId: { type: string, format: uuid }
+        fileId: { type: string, format: uuid }
+        state: { $ref: '#/components/schemas/UploadState' }
+        sizeBytes: { type: integer, format: int64 }
+        put: { $ref: '#/components/schemas/SinglePutTicket' }
+    SinglePutTicket:
+      type: object
+      required: [url, expiresAt]
+      properties:
+        url: { type: string, format: uri }
+        expiresAt: { type: string, format: date-time }
+        requiredHeaders:
+          type: object
+          additionalProperties: { type: string }
     SignPartsRequest:
       type: object
       additionalProperties: false

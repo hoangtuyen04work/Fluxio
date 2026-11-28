@@ -8,6 +8,24 @@ import retrofit2.http.POST
 import retrofit2.http.Path
 
 interface TransferApi {
+    @POST("single-uploads")
+    suspend fun createSingleUpload(
+        @Header("Idempotency-Key") idempotencyKey: String,
+        @Body request: CreateUploadRequest
+    ): SingleUploadSession
+
+    @POST("single-uploads/{uploadId}/url")
+    suspend fun refreshSingleUploadUrl(@Path("uploadId") uploadId: String): SinglePutTicket
+
+    @POST("single-uploads/{uploadId}/complete")
+    suspend fun completeSingleUpload(
+        @Path("uploadId") uploadId: String,
+        @Header("Idempotency-Key") idempotencyKey: String
+    ): FileMetadata
+
+    @DELETE("single-uploads/{uploadId}")
+    suspend fun abortSingleUpload(@Path("uploadId") uploadId: String)
+
     @POST("uploads")
     suspend fun createUpload(
         @Header("Idempotency-Key") idempotencyKey: String,

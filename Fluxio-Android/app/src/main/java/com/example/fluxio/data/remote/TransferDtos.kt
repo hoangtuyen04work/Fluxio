@@ -10,6 +10,18 @@ data class UploadSession(
     val partCount: Int,
     val expiresAt: String
 )
+data class SinglePutTicket(
+    val url: String,
+    val expiresAt: String,
+    val requiredHeaders: Map<String, String> = emptyMap()
+)
+data class SingleUploadSession(
+    val uploadId: String,
+    val fileId: String,
+    val state: String,
+    val sizeBytes: Long,
+    val put: SinglePutTicket
+)
 data class SignPartsRequest(val partNumbers: List<Int>)
 data class SignedPart(val partNumber: Int, val url: String, val requiredHeaders: Map<String, String> = emptyMap())
 data class SignedParts(val uploadId: String, val expiresAt: String, val parts: List<SignedPart>)

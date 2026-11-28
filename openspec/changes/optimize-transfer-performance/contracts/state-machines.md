@@ -11,7 +11,7 @@ This document defines the normative server and Android state transitions for the
 | State | Meaning | Holds reserved quota | Terminal |
 |---|---|---:|---:|
 | `INITIALIZING` | Quota is reserved and MinIO multipart creation is in progress | Yes | No |
-| `ACTIVE` | The session may sign, upload, list, and reconcile parts | Yes | No |
+| `ACTIVE` | The multipart session may sign/list parts; a B1 session may issue/refresh one whole-object PUT URL | Yes | No |
 | `COMPLETING` | Completion has been claimed and MinIO/database reconciliation is in progress | Yes | No |
 | `COMPLETED` | The object and file metadata are complete; reservation became active usage | No | Yes |
 | `ABORTED` | Initialization or upload was cancelled and reservation was released | No | Yes |
@@ -22,6 +22,7 @@ This document defines the normative server and Android state transitions for the
 | Current state | Event or command | Guard/action | Next state |
 |---|---|---|---|
 | none | Valid create request | Atomically reserve quota and insert session | `INITIALIZING` |
+| none | Valid B1 create request | Atomically reserve quota and insert `SINGLE_PUT` session; no multipart initialization | `ACTIVE` |
 | `INITIALIZING` | MinIO multipart creation succeeds | Persist `storageUploadId`; return session only after commit | `ACTIVE` |
 | `INITIALIZING` | Transient MinIO failure before five-minute deadline | Retry with bounded backoff | `INITIALIZING` |
 | `INITIALIZING` | Five-minute deadline or permanent failure | Abort any discovered multipart upload and release quota once | `ABORTED` |
@@ -29,6 +30,8 @@ This document defines the normative server and Android state transitions for the
 | `ACTIVE` | Valid complete request | Claim completion using a conditional update | `COMPLETING` |
 | `ACTIVE` | Abort request | Abort MinIO and release quota once | `ABORTED` |
 | `ACTIVE` | No successful activity for 24 hours | Abort MinIO and release quota once | `EXPIRED` |
+| `ACTIVE` B1 | Expiry reconciliation finds an exact-size object | Claim and finalize the shared file metadata | `COMPLETING` |
+| `ACTIVE` B1 | Expiry finds no exact-size object | Delete any mismatched object, release quota once, and schedule a bounded late-object deletion check | `EXPIRED` |
 | `COMPLETING` | Reconciliation proves the object exists | Create/activate file, move reserved bytes to active bytes, store response | `COMPLETED` |
 | `COMPLETING` | Reconciliation proves completion did not occur and cannot continue | Abort remaining multipart state and release quota once | `ABORTED` |
 | `COMPLETING` | Completion outcome is temporarily unknown | Retry reconciliation; never expire or abort speculatively | `COMPLETING` |
@@ -74,6 +77,7 @@ Owner mismatch and invisible resources return `404` before state-specific behavi
 | `FAILED` | Transfer failed and records whether retry is allowed | No |
 | `CANCELLING` | Local work stopped; cancellation/cleanup confirmation is pending | No |
 | `REQUIRES_RESELECTION` | Android lost URI permission and needs user input | No |
+| `AUTH_REQUIRED` | A valid in-memory JWT is unavailable; user sign-in is required | No |
 | `COMPLETED` | Transfer completed successfully | Yes |
 | `CANCELLED` | Cancellation and required cleanup were confirmed | Yes |
 
@@ -82,11 +86,13 @@ Owner mismatch and invisible resources return `404` before state-specific behavi
 | Current state | Event | Action | Next state |
 |---|---|---|---|
 | `QUEUED` | Worker starts with usable URI | Begin bounded transfer | `RUNNING` |
+| `QUEUED` | Worker starts without valid authentication | Stop automatic work and prompt for sign-in | `AUTH_REQUIRED` |
 | `QUEUED` | User cancels | Start abort or local cleanup | `CANCELLING` |
 | `RUNNING` | User pauses | Stop scheduling new requests; retain partial state | `PAUSED` |
 | `RUNNING` | Process restarts, response is uncertain, or network state must be checked | Persist progress and reconcile authoritative state | `RECONCILING` |
 | `RUNNING` | Retryable failure | Store error and `retryable=true` | `FAILED` |
 | `RUNNING` | Permanent failure | Store error and `retryable=false` | `FAILED` |
+| `RUNNING` | JWT is missing, expired, or rejected | Stop request retries without consuming transfer retry budget | `AUTH_REQUIRED` |
 | `RUNNING` | User cancels | Stop local requests and request abort/cleanup | `CANCELLING` |
 | `RUNNING` | Transfer is durably confirmed | Persist final metadata | `COMPLETED` |
 | `PAUSED` | User resumes | Reconcile before sending more bytes | `RECONCILING` |
@@ -100,11 +106,15 @@ Owner mismatch and invisible resources return `404` before state-specific behavi
 | `FAILED` | User cancels an upload whose server session may remain | Request abort | `CANCELLING` |
 | `REQUIRES_RESELECTION` | User grants a usable replacement URI | Recheck authoritative state | `RECONCILING` |
 | `REQUIRES_RESELECTION` | User cancels | Request abort or local cleanup | `CANCELLING` |
+| `AUTH_REQUIRED` | User signs in and source URI is usable | Re-enter strategy-specific recovery | `RECONCILING` |
+| `AUTH_REQUIRED` | User cancels | Request abort after authentication is available, or retain pending cleanup | `CANCELLING` |
 | `CANCELLING` | Backend confirms `ABORTED`/`EXPIRED`, or download partial cleanup succeeds | Persist cleanup result | `CANCELLED` |
 | `CANCELLING` | Backend reports completion won the race | Persist final file metadata | `COMPLETED` |
 | `CANCELLING` | Transient abort/cleanup failure | Retry with bounded backoff | `CANCELLING` |
 
 After process recreation, any locally persisted `RUNNING` or `CANCELLING` transfer resumes in `RECONCILING` or cancellation recovery before new file bytes are sent.
+
+For B1, `RECONCILING` never continues a partial PUT: it checks whether an exact-size object already exists and can be completed; otherwise the next permitted attempt starts at byte zero. The five-attempt whole-PUT budget and redundant-byte counters persist in Room. Multipart reconciliation continues to upload only missing confirmed parts.
 
 ### Pause and cancellation semantics
 

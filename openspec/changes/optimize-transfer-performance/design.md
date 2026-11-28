@@ -52,6 +52,14 @@ The evaluation MUST compare five modes defined by the benchmark protocol: `B0` w
 
 `B0` is an intentionally unoptimized research control and is not required to pass the release memory, large-file, or recovery gates. A resource failure at a larger size is recorded as a baseline result rather than hidden or treated as a defect in the optimized path.
 
+### User-selectable normal upload
+
+The Android upload screen exposes `B1` as **Normal upload — single PUT, restarts if interrupted** and the complete multipart path as **Optimized upload — multipart, can resume**. B1 reads the selected content URI through a fixed-size buffer and performs one presigned PUT without a whole-file cache copy. It uses dedicated `/api/v1/single-uploads` control-plane endpoints while sharing the same JWT ownership, 5 GiB limit, 20 GiB quota, deterministic object naming, `stored_file` metadata, MinIO bucket, WorkManager execution, Room transfer record, and measurement recorder as the optimized path.
+
+B1 never resumes a partial PUT. A retry begins at byte zero and records resent bytes. The old FXM1 path is not B1 because it first encrypts the complete file into cache; it remains implementation-state only until the new UI is connected. A source URI without a trustworthy exact size is rejected rather than pre-scanned, because pre-scanning would change the startup and I/O cost being measured.
+
+Authentication tokens remain memory-only for this change. When a worker starts without a valid token, or authentication expires, Android enters `AUTH_REQUIRED` and waits for the user to sign in. After sign-in, B1 restarts from byte zero while multipart reconciles and continues only missing parts. Refresh-token and durable credential work is deferred.
+
 ### Optional segmented download experiment
 
 Sequential ranged download with version-guarded resume is required. Parallel segmented-range download is optional research owned by the download work package. If implemented, it MUST preserve object-version consistency, bounded concurrency, correct offset writes, and final checksum validation. Failure to implement or outperform sequential ranged download does not block the demonstration release.
@@ -91,6 +99,8 @@ All existing FXM1 objects are non-production test data. They are deleted before 
 - [Parallelism increases memory and CPU use, while physical-device battery/radio cost remains unknown] → bounded configuration, emulator benchmark gates, and explicit deferral of physical-device certification.
 - [Presigned URL leakage grants temporary access] → short lifetime, operation/part scoping, HTTPS, and no URL logging.
 - [Incomplete multipart uploads consume storage] → explicit abort plus scheduled expiry cleanup.
+- [A single PUT finishes after its session expires] → reconcile exact-size objects into completion when valid; delete mismatched or late objects through a bounded follow-up cleanup check.
+- [JWT is unavailable after process death] → persist `AUTH_REQUIRED`, stop automatic retries, and require sign-in before restarting/reconciling transfer work.
 - [Legacy FXM1 test objects are unreadable after the switch] → delete the test objects before release and verify the bucket contains no retained FXM1 data.
 
 ## Migration Plan
@@ -100,6 +110,7 @@ All existing FXM1 objects are non-production test data. They are deleted before 
 3. Implement Room transfer state and streaming multipart upload.
 4. Implement ranged resumable download and user-visible foreground execution.
 5. Benchmark candidate settings and select defaults.
-6. Switch all new uploads to the performance path.
+6. Add the B1 single-PUT control plane and connect the Android normal/optimized selector to the shared transfer orchestration.
+7. Keep B1 and the optimized path available for controlled comparison; do not route new uploads through the legacy FXM1 client.
 
 Rollback keeps the existing single-PUT FXM1 path available until multipart integration and benchmark acceptance pass.

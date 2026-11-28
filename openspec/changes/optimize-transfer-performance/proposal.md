@@ -14,6 +14,7 @@ Fluxio must first establish a fast, resumable, and resource-efficient transfer f
 - Add resumable upload state, retry, reconciliation, cancellation, and cleanup.
 - Establish benchmark-based acceptance criteria before choosing final part size and concurrency defaults.
 - Require comparative baseline modes that isolate the effects of streaming, chunking, bounded parallelism, and asynchronous resume.
+- Expose `B1` as a user-selectable normal upload flow: one direct fixed-buffer PUT with shared authentication, quota, metadata, and measurement; keep multipart/resume as the optimized flow.
 - Keep segmented parallel download as an optional experiment; ranged resumable download remains the required download path.
 - Limit each file to 5 GiB and each user to 20 GiB of active stored files for the first performance release.
 - Delete existing FXM1 test data instead of building a legacy migration or compatibility path.
@@ -33,7 +34,7 @@ Fluxio must first establish a fast, resumable, and resource-efficient transfer f
 
 ## Impact
 
-- Android: transfer repository, local Room state, background execution, direct stream/range I/O, progress and cancellation UI.
-- Backend: multipart session orchestration, presigned part URLs, reconciliation, complete/abort operations, metadata persistence and cleanup.
+- Android: transfer repository, local Room state, background execution, a normal/optimized upload selector, direct stream/range I/O, progress and cancellation UI.
+- Backend: dedicated single-PUT and multipart session orchestration, presigned URLs, reconciliation, complete/abort operations, shared metadata persistence, quota, and cleanup.
 - MinIO: private bucket, incomplete multipart lifecycle cleanup, checksums and ranged downloads.
 - Specifications: cryptographic documents remain future research and are not implementation requirements for this change.

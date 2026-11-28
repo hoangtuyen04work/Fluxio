@@ -2,6 +2,7 @@ package com.example.fluxio.transfer.storage;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Optional;
 
 public interface MultipartObjectStore {
     String createMultipart(String objectKey, String contentType);
@@ -12,6 +13,9 @@ public interface MultipartObjectStore {
     ObjectMetadata headObject(String objectKey);
     boolean multipartExists(String objectKey, String uploadId);
     default URI presignDownload(String objectKey) { throw new UnsupportedOperationException(); }
+    default URI presignPut(String objectKey, String contentType) { throw new UnsupportedOperationException(); }
+    default void deleteObject(String objectKey) { throw new UnsupportedOperationException(); }
+    default Optional<ObjectMetadata> findObject(String objectKey) { return Optional.of(headObject(objectKey)); }
 
     record UploadedPart(int partNumber, String etag, long sizeBytes) {}
     record CompletedPart(int partNumber, String etag) {}

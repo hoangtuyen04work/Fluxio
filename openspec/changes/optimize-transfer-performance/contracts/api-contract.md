@@ -15,6 +15,10 @@ The machine-readable target contract is [`openapi.yaml`](./openapi.yaml). Existi
 | `GET` | `/api/v1/uploads/{uploadId}/parts` | Return MinIO-authoritative uploaded parts | Safe and repeatable |
 | `POST` | `/api/v1/uploads/{uploadId}/complete` | Validate ordered parts, complete object, finalize metadata/quota | Required key; repeats return same file |
 | `DELETE` | `/api/v1/uploads/{uploadId}` | Abort multipart upload and release reservation | Repeated abort returns `204` |
+| `POST` | `/api/v1/single-uploads` | Reserve quota and issue one direct-PUT URL for B1 | Required key; same key and request returns the same session |
+| `POST` | `/api/v1/single-uploads/{uploadId}/url` | Refresh the active B1 PUT URL | Naturally repeatable; URL may differ |
+| `POST` | `/api/v1/single-uploads/{uploadId}/complete` | Verify the single object and finalize shared file metadata | Required key; repeats return the same file |
+| `DELETE` | `/api/v1/single-uploads/{uploadId}` | Abort B1, delete an object if present, and release reservation | Repeated abort returns `204` |
 | `POST` | `/api/v1/files/{fileId}/download-ticket` | Authorize ranged download and return object version | Repeatable; each call may sign a new URL |
 
 ## Contract rules
@@ -28,6 +32,8 @@ The machine-readable target contract is [`openapi.yaml`](./openapi.yaml). Existi
 - API errors use `application/problem+json` with a stable machine-readable `code`; presigned URLs must never be included in error details or logs.
 - URL expiry is returned explicitly. Clients request fresh URLs instead of retrying an expired signed request.
 - Presigned URLs expire after 15 minutes. Active upload sessions expire after 24 hours without successful activity; initialization has a five-minute deadline, while a completion unresolved for two minutes is reconciled rather than expired.
+- B1 uses a dedicated API but the same owner scope, quota, object naming, `stored_file` result, idempotency rules, and expiry policy. Its PUT is direct to MinIO, starts at byte zero on every attempt, and is never represented as resumable.
+- A single-upload completion performs `HEAD` and accepts only an object whose size exactly equals the declared size. Expiry reconciliation promotes an exact-size object through normal completion; missing/mismatched objects release quota and are deleted when present. Cleanup performs a bounded follow-up deletion check for a late PUT.
 - State-specific allowed operations and HTTP responses are normative in [`state-machines.md`](./state-machines.md).
 
 ## Upload and resume sequence
@@ -69,6 +75,10 @@ sequenceDiagram
 Completion crosses PostgreSQL and MinIO, so it cannot be one atomic transaction. The session first moves from `ACTIVE` to `COMPLETING`. After MinIO completes, the backend stores the resulting object version and atomically creates/activates the file, converts reserved bytes to active bytes, and marks the session `COMPLETED`.
 
 If the process stops after MinIO completion but before PostgreSQL finalization, a repeated completion checks the deterministic object key and object metadata, then finishes the database transaction. Cleanup never aborts a `COMPLETING` session until it has reconciled whether the object already exists.
+
+## B1 single-PUT sequence
+
+Android creates `/single-uploads`, streams the source URI through one fixed-buffer PUT to the returned URL, and calls `/complete`. A URL refresh authorizes a new whole PUT; it does not continue a partial request. B1 has five total PUT attempts persisted in Room and retries connection failures, timeouts, `408`, `429`, and `5xx` with capped exponential backoff and jitter while honoring `Retry-After`. Authentication failure transitions Android to `AUTH_REQUIRED` without consuming further attempts.
 
 ## Retry policy
 

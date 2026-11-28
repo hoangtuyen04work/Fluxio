@@ -8,6 +8,10 @@ import java.util.List;
 public interface UploadRepository {
     UploadSessionRecord reserveAndCreateInitializing(CreateUploadRecord command);
 
+    default UploadSessionRecord reserveAndCreateSinglePut(CreateSingleUploadRecord command) {
+        throw new UnsupportedOperationException();
+    }
+
     boolean activate(UUID uploadId, String storageUploadId, Instant expiresAt);
 
     boolean convertReservationToActive(UUID uploadId);

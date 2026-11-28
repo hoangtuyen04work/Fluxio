@@ -1,19 +1,20 @@
 # Tiến độ: Tối ưu hiệu năng truyền file
 
-> Cập nhật lần cuối: 2026-11-24
-> Trạng thái change: **Đang triển khai backend control plane**
-> Việc tiếp theo: **Triển khai multipart storage boundary và API control plane (2.2)**
+> Cập nhật lần cuối: 2026-11-28
+> Trạng thái change: **Đã triển khai nền tảng transfer; đang bổ sung flow so sánh B1 và chạy nghiệm thu thực tế**
+> Việc tiếp theo: **Triển khai API single-upload 6.1, nối UI/WorkManager 6.2–6.3, sau đó chạy benchmark 5.2 và E2E 5.3**
 
 ## Tổng quan
 
 | Hạng mục | Hoàn thành | Tổng số | Tiến độ | Trạng thái |
 |---|---:|---:|---:|---|
 | Hoàn thiện đặc tả trước lập trình | 7 | 7 | 100% | Hoàn thành |
-| Backend control plane | 1 | 3 | 33% | Đang thực hiện |
-| Android streaming upload | 0 | 3 | 0% | Chưa bắt đầu |
-| Android resumable download | 0 | 2 | 0% | Chưa bắt đầu |
-| Benchmark và nghiệm thu | 0 | 3 | 0% | Chưa bắt đầu |
-| **Toàn bộ change** | **8** | **18** | **44%** | **Đang thực hiện** |
+| Backend control plane | 3 | 3 | 100% | Hoàn thành nền tảng multipart |
+| Android streaming upload | 3 | 3 | 100% | Hoàn thành engine; chưa nối đầy đủ vào UI |
+| Android resumable download và ticket | 3 | 3 | 100% | Hoàn thành engine/control plane |
+| Benchmark và nghiệm thu | 1 | 3 | 33% | Còn đo thực tế và E2E |
+| Flow so sánh B1 | 0 | 3 | 0% | Đã duyệt thiết kế ngày 2026-11-28 |
+| **Toàn bộ change** | **17** | **22** | **77%** | **Đang thực hiện** |
 
 Quy ước:
 
@@ -51,25 +52,33 @@ Cổng đặc tả đã vượt qua: mục 0.5 được phê duyệt, OpenSpec v
 ## Giai đoạn B — Backend control plane
 
 - [x] Tạo PostgreSQL migrations cho file, upload session, idempotency, expiry và quota reservation; `UploadRepositoryIT` đã kiểm tra apply/clean migration, giới hạn 5 GiB, quota 20 GiB, concurrent reservation và terminal accounting exactly-once trên PostgreSQL 17.
-- [ ] Triển khai create upload, sign parts, list parts, complete và abort; bổ sung contract tests.
-- [ ] Triển khai cleanup cho upload hết hạn; xác minh cả MinIO multipart và database session được xử lý.
+- [x] Triển khai create upload, sign parts, list parts, complete và abort; bổ sung contract tests.
+- [x] Triển khai cleanup cho upload hết hạn; xác minh cả MinIO multipart và database session được xử lý.
 
 ## Giai đoạn C — Android streaming upload
 
-- [ ] Tạo Room state cho transfer/part và xử lý persisted URI permission.
-- [ ] Triển khai multipart streaming với memory và concurrency được giới hạn.
-- [ ] Triển khai reconciliation, retry, cancellation và chống chạy trùng transfer.
+- [x] Tạo Room state cho transfer/part và xử lý persisted URI permission.
+- [x] Triển khai multipart streaming với memory và concurrency được giới hạn.
+- [x] Triển khai reconciliation, retry, cancellation và chống chạy trùng transfer.
 
 ## Giai đoạn D — Android resumable download
 
-- [ ] Triển khai ranged download continuation có kiểm tra object version.
-- [ ] Triển khai foreground progress, retry state và cancellation hiển thị cho người dùng.
+- [x] Triển khai ranged download continuation có kiểm tra object version.
+- [x] Triển khai foreground progress, retry state và cancellation ở tầng WorkManager/engine; phần nối UI đầy đủ được theo dõi trong 6.3.
 
 ## Giai đoạn E — Benchmark và nghiệm thu
 
-- [ ] Xây dựng benchmark matrix lặp lại được trên Android Emulator cố định cho bốn kích thước file và hai profile Good Wi-Fi/Interrupted.
+- [x] Xây dựng benchmark harness và matrix lặp lại được cho bốn kích thước file và hai profile Good Wi-Fi/Interrupted; chưa có số đo emulator thực tế.
 - [ ] Đo part size 5/8/16 MiB với concurrency 1/2/4; chọn default bằng bằng chứng.
 - [ ] Chạy end-to-end upload, resume, complete, download, cancel và cleanup; đối chiếu tất cả OpenSpec scenarios.
+
+## Giai đoạn F — Flow B1 để so sánh trên giao diện
+
+- [ ] Thêm API `/api/v1/single-uploads` dùng chung quota, metadata và cleanup với multipart.
+- [ ] Thêm B1 direct single PUT không tạo full-file cache, retry từ byte 0 và trạng thái `AUTH_REQUIRED`.
+- [ ] Thêm lựa chọn “Upload bình thường”/“Upload tối ưu” và ghi cùng bộ chỉ số để so sánh.
+
+Trạng thái triển khai ngày 2026-11-28: API/service, migration V3, cleanup cơ bản, Android direct-stream engine, Room schema V2 và lựa chọn UI đã có unit/API tests và build APK thành công. Các mục 6.1–6.3 vẫn để mở cho tới khi PostgreSQL/MinIO integration, WorkManager end-to-end, measurement recorder và E2E trên emulator có bằng chứng; Docker daemon không khả dụng trong lượt kiểm tra này.
 
 ## Quyết định đã khóa
 
@@ -86,6 +95,8 @@ Cổng đặc tả đã vượt qua: mục 0.5 được phê duyệt, OpenSpec v
 | E2EE và client-side encryption | Hoãn sang OpenSpec change trong tương lai |
 | Microservices, Kafka, Redis | Không sử dụng nếu chưa có bằng chứng cần thiết |
 | Comparative baseline | `B0`–`B4` là bằng chứng bắt buộc |
+| Upload bình thường trên UI | B1 direct fixed-buffer single PUT; không cache toàn file, không resume |
+| Xác thực sau process death | Yêu cầu người dùng đăng nhập lại; không thêm refresh token trong change này |
 | Segmented download | Thí nghiệm tùy chọn, không chặn nghiệm thu |
 
 ## Tài liệu nguồn

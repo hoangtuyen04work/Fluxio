@@ -20,9 +20,9 @@ Không sử dụng tài liệu ngoài `openspec/` để quyết định hành vi
 
 ### Code hiện tại
 
-- Backend Java 21/Spring Boot 4 cấp JWT và presigned MinIO URL.
-- Android hiện vẫn chứa luồng thử nghiệm FXM1, tạo file mã hóa tạm và dùng một PUT/GET toàn file.
-- Chưa có PostgreSQL, Room transfer state, multipart upload hoặc resumable transfer.
+- Backend Java 21/Spring Boot 4 đã có PostgreSQL, quota, multipart control plane, cleanup/reconciliation, download ticket và presigned MinIO URL.
+- Android đã có Room transfer state, multipart upload engine, ranged resumable download, WorkManager primitives và benchmark harness, nhưng giao diện hiện vẫn gọi luồng FXM1 cũ nên các engine mới chưa được nối end-to-end.
+- Flow B1 đang được bổ sung để người dùng chọn **Upload bình thường** (direct single PUT, không cache toàn file, không resume) hoặc **Upload tối ưu** (multipart + resume) và đo cùng một bộ chỉ số.
 
 Canonical spec dưới [`openspec/specs/`](./openspec/specs/) mô tả trạng thái hiện tại cho tới khi active change được triển khai và archive. Không xóa code/spec FXM1 trước khi luồng mới thay thế nó.
 
@@ -35,6 +35,7 @@ Canonical spec dưới [`openspec/specs/`](./openspec/specs/) mô tả trạng t
 - Room, WorkManager, progress, pause và cancellation.
 - File tối đa 5 GiB; quota 20 GiB mỗi người dùng.
 - Benchmark trên Android Studio Emulator với Good Wi-Fi và Interrupted profiles.
+- So sánh B1 và flow tối ưu với cùng file, tài khoản, quota, MinIO và cấu hình mạng; B1 gửi lại từ byte 0 khi gián đoạn.
 - Client-side encryption/E2EE được hoãn sang một OpenSpec change khác.
 
 ## Cấu trúc dự án

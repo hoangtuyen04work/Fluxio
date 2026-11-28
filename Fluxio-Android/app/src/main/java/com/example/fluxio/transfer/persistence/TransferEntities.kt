@@ -5,6 +5,7 @@ import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import androidx.room.TypeConverter
+import androidx.room.ColumnInfo
 import com.example.fluxio.transfer.upload.TransferState
 
 @Entity(
@@ -28,7 +29,8 @@ data class TransferEntity(
     val nextRetryAtEpochMillis: Long?,
     val uriPermissionPersisted: Boolean,
     val createdAtEpochMillis: Long,
-    val updatedAtEpochMillis: Long
+    val updatedAtEpochMillis: Long,
+    @ColumnInfo(defaultValue = "'MULTIPART'") val uploadStrategy: String = "MULTIPART"
 )
 
 @Entity(

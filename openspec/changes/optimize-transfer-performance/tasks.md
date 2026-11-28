@@ -37,6 +37,12 @@
 - [ ] 5.2 Measure part sizes 5/8/16 MiB with concurrency 1/2/4, select defaults from evidence, and record the selected values and rationale in the spec and design.
 - [ ] 5.3 Run end-to-end upload, resume, complete, download, cancel, and cleanup validation against MinIO; verify all OpenSpec scenarios have corresponding evidence.
 
+## 6. User-selectable B1 comparison flow
+
+- [ ] 6.1 Add the dedicated single-upload OpenAPI/control-plane lifecycle with shared quota, `stored_file` metadata, exact-size completion, abort, expiry, late-object cleanup, and integration tests.
+- [ ] 6.2 Add Android B1 direct fixed-buffer PUT through Room and WorkManager with five-attempt restart-from-zero retry, `AUTH_REQUIRED`, progress/cancellation, and no whole-file cache copy.
+- [ ] 6.3 Add the normal/optimized upload selector and connect both strategies to the same measurement recorder; verify same-file normal versus optimized E2E evidence.
+
 Optional research: implement and measure bounded parallel segmented-range download only after the required sequential ranged-resume path passes; omission does not block the change.
 
 ## Workflow follow-up

@@ -35,6 +35,24 @@ public final class TransferDtos {
         }
     }
 
+    public record SinglePutTicket(URI url, Instant expiresAt, java.util.Map<String, String> requiredHeaders) {
+        static SinglePutTicket from(
+                com.example.fluxio.transfer.application.SingleUploadApplicationService.PutTicket ticket) {
+            return new SinglePutTicket(ticket.url(), ticket.expiresAt(), java.util.Map.of());
+        }
+    }
+
+    public record SingleUploadSession(
+            UUID uploadId, UUID fileId, UploadState state, long sizeBytes, SinglePutTicket put) {
+        static SingleUploadSession from(
+                com.example.fluxio.transfer.application.SingleUploadApplicationService.Created created) {
+            var session = created.session();
+            return new SingleUploadSession(session.id(), session.fileId(), session.state(),
+                    session.declaredSizeBytes(), new SinglePutTicket(
+                    created.url(), created.expiresAt(), java.util.Map.of()));
+        }
+    }
+
     public record SignPartsRequest(List<Integer> partNumbers) {}
 
     public record SignedPart(int partNumber, URI url, java.util.Map<String, String> requiredHeaders) {}

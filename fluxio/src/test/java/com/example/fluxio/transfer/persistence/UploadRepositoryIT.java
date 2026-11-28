@@ -128,6 +128,28 @@ class UploadRepositoryIT {
         assertThat(repository.findByOwner(UUID.randomUUID(), "owner-alice")).isEmpty();
     }
 
+    @Test
+    void createsActiveSinglePutSessionWithoutMultipartFields() {
+        UUID uploadId = UUID.randomUUID();
+        var session = repository.reserveAndCreateSinglePut(new CreateSingleUploadRecord(
+                uploadId,
+                UUID.randomUUID(),
+                "owner-single",
+                "owners/owner-single/files/" + uploadId,
+                "request-" + uploadId,
+                "fixture.bin",
+                "application/octet-stream",
+                100,
+                Instant.parse("2026-11-25T00:00:00Z")));
+
+        assertThat(session.strategy()).isEqualTo(UploadStrategy.SINGLE_PUT);
+        assertThat(session.state()).isEqualTo(com.example.fluxio.transfer.domain.UploadState.ACTIVE);
+        assertThat(session.storageUploadId()).isNull();
+        assertThat(session.partSizeBytes()).isNull();
+        assertThat(session.partCount()).isNull();
+        assertUsage("owner-single", 0, 100);
+    }
+
     private boolean reserveAfterBarrier(String ownerId, CountDownLatch ready, CountDownLatch start)
             throws InterruptedException {
         ready.countDown();

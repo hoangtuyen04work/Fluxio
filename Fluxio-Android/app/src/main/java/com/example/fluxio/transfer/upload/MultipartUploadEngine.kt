@@ -20,7 +20,7 @@ import kotlinx.coroutines.sync.withLock
 
 data class UploadWork(val remoteUploadId: String, val totalBytes: Long, val partSizeBytes: Long)
 
-enum class TransferState { QUEUED, RUNNING, PAUSED, RECONCILING, COMPLETED, FAILED, CANCELLING, CANCELLED }
+enum class TransferState { QUEUED, RUNNING, PAUSED, RECONCILING, COMPLETED, FAILED, CANCELLING, CANCELLED, AUTH_REQUIRED, REQUIRES_RESELECTION }
 
 interface TransferStore {
     suspend fun load(id: UUID): UploadWork

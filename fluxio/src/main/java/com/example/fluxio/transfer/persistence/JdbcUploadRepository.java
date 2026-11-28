@@ -31,23 +31,34 @@ public final class JdbcUploadRepository implements UploadRepository {
         return transactions.execute(status -> reserve(command));
     }
 
-    private UploadSessionRecord reserve(CreateUploadRecord command) {
+    @Override
+    public UploadSessionRecord reserveAndCreateSinglePut(CreateSingleUploadRecord command) {
+        if (command.declaredSizeBytes() < 1 || command.declaredSizeBytes() > MAX_FILE_BYTES) {
+            throw new InvalidUploadSizeException(command.declaredSizeBytes());
+        }
+        return transactions.execute(status -> reserveSingle(command));
+    }
+
+    private UploadSessionRecord reserveSingle(CreateSingleUploadRecord command) {
+        ensureUsageAndQuota(command.ownerId(), command.declaredSizeBytes());
+        Instant now = Instant.now();
         jdbc.update(
                 """
-                insert into account_storage_usage(owner_id, active_bytes, reserved_bytes, version, updated_at)
-                values (?, 0, 0, 0, now())
-                on conflict (owner_id) do nothing
+                insert into upload_session(
+                    id, file_id, owner_id, object_key, request_hash, declared_size_bytes,
+                    part_size_bytes, part_count, state, expires_at, created_at, updated_at,
+                    file_name, content_type, strategy)
+                values (?, ?, ?, ?, ?, ?, null, null, 'ACTIVE', ?, ?, ?, ?, ?, 'SINGLE_PUT')
                 """,
-                command.ownerId());
+                command.id(), command.fileId(), command.ownerId(), command.objectKey(),
+                command.requestHash(), command.declaredSizeBytes(), Timestamp.from(command.expiresAt()),
+                Timestamp.from(now), Timestamp.from(now), command.fileName(), command.contentType());
+        addReservation(command.ownerId(), command.declaredSizeBytes());
+        return find(command.id());
+    }
 
-        var usage = jdbc.queryForMap(
-                "select active_bytes, reserved_bytes from account_storage_usage where owner_id = ? for update",
-                command.ownerId());
-        long activeBytes = ((Number) usage.get("active_bytes")).longValue();
-        long reservedBytes = ((Number) usage.get("reserved_bytes")).longValue();
-        if (activeBytes + reservedBytes > QUOTA_BYTES - command.declaredSizeBytes()) {
-            throw new QuotaExceededException(command.ownerId());
-        }
+    private UploadSessionRecord reserve(CreateUploadRecord command) {
+        ensureUsageAndQuota(command.ownerId(), command.declaredSizeBytes());
 
         Instant now = Instant.now();
         jdbc.update(
@@ -55,21 +66,44 @@ public final class JdbcUploadRepository implements UploadRepository {
                 insert into upload_session(
                     id, file_id, owner_id, object_key, request_hash, declared_size_bytes,
                     part_size_bytes, part_count, state, expires_at, created_at, updated_at,
-                    file_name, content_type)
-                values (?, ?, ?, ?, ?, ?, ?, ?, 'INITIALIZING', ?, ?, ?, ?, ?)
+                    file_name, content_type, strategy)
+                values (?, ?, ?, ?, ?, ?, ?, ?, 'INITIALIZING', ?, ?, ?, ?, ?, 'MULTIPART')
                 """,
                 command.id(), command.fileId(), command.ownerId(), command.objectKey(),
                 command.requestHash(), command.declaredSizeBytes(), command.partSizeBytes(),
                 command.partCount(), Timestamp.from(command.expiresAt()), Timestamp.from(now),
                 Timestamp.from(now), command.fileName(), command.contentType());
+        addReservation(command.ownerId(), command.declaredSizeBytes());
+        return find(command.id());
+    }
+
+    private void ensureUsageAndQuota(String ownerId, long requestedBytes) {
+        jdbc.update(
+                """
+                insert into account_storage_usage(owner_id, active_bytes, reserved_bytes, version, updated_at)
+                values (?, 0, 0, 0, now())
+                on conflict (owner_id) do nothing
+                """,
+                ownerId);
+
+        var usage = jdbc.queryForMap(
+                "select active_bytes, reserved_bytes from account_storage_usage where owner_id = ? for update",
+                ownerId);
+        long activeBytes = ((Number) usage.get("active_bytes")).longValue();
+        long reservedBytes = ((Number) usage.get("reserved_bytes")).longValue();
+        if (activeBytes + reservedBytes > QUOTA_BYTES - requestedBytes) {
+            throw new QuotaExceededException(ownerId);
+        }
+    }
+
+    private void addReservation(String ownerId, long bytes) {
         jdbc.update(
                 """
                 update account_storage_usage
                 set reserved_bytes = reserved_bytes + ?, version = version + 1, updated_at = now()
                 where owner_id = ?
                 """,
-                command.declaredSizeBytes(), command.ownerId());
-        return find(command.id());
+                bytes, ownerId);
     }
 
     @Override
@@ -321,11 +355,12 @@ public final class JdbcUploadRepository implements UploadRepository {
                 result.getString("file_name"),
                 result.getString("content_type"),
                 result.getLong("declared_size_bytes"),
-                result.getLong("part_size_bytes"),
-                result.getInt("part_count"),
+                result.getObject("part_size_bytes", Long.class),
+                result.getObject("part_count", Integer.class),
                 UploadState.valueOf(result.getString("state")),
                 expiresAt == null ? null : expiresAt.toInstant(),
                 result.getTimestamp("created_at").toInstant(),
-                result.getTimestamp("updated_at").toInstant());
+                result.getTimestamp("updated_at").toInstant(),
+                UploadStrategy.valueOf(result.getString("strategy")));
     }
 }

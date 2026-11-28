@@ -3,6 +3,7 @@ package com.example.fluxio.transfer.application;
 import com.example.fluxio.transfer.persistence.CreateUploadRecord;
 import com.example.fluxio.transfer.persistence.UploadRepository;
 import com.example.fluxio.transfer.persistence.UploadSessionRecord;
+import com.example.fluxio.transfer.persistence.UploadStrategy;
 import com.example.fluxio.transfer.storage.MultipartObjectStore;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -112,6 +113,7 @@ public final class UploadApplicationService {
         }
         UploadSessionRecord session = uploads.findByOwner(uploadId, ownerId)
                 .orElseThrow(UploadNotFoundException::new);
+        requireMultipart(session);
         if (session.state() == com.example.fluxio.transfer.domain.UploadState.COMPLETING) {
             var object = storage.headObject(session.objectKey());
             if (object.sizeBytes() != session.declaredSizeBytes()) {
@@ -136,6 +138,7 @@ public final class UploadApplicationService {
     public void abort(String ownerId, UUID uploadId) {
         UploadSessionRecord session = uploads.findByOwner(uploadId, ownerId)
                 .orElseThrow(UploadNotFoundException::new);
+        requireMultipart(session);
         if (session.state() == com.example.fluxio.transfer.domain.UploadState.ABORTED
                 || session.state() == com.example.fluxio.transfer.domain.UploadState.EXPIRED) {
             return;
@@ -186,6 +189,7 @@ public final class UploadApplicationService {
     private UploadSessionRecord activeSession(String ownerId, UUID uploadId) {
         UploadSessionRecord session = uploads.findByOwner(uploadId, ownerId)
                 .orElseThrow(UploadNotFoundException::new);
+        requireMultipart(session);
         if (!session.expiresAt().isAfter(clock.instant())) {
             throw new UploadExpiredException();
         }
@@ -193,6 +197,10 @@ public final class UploadApplicationService {
             throw new InvalidUploadStateException();
         }
         return session;
+    }
+
+    private static void requireMultipart(UploadSessionRecord session) {
+        if (session.strategy() != UploadStrategy.MULTIPART) throw new InvalidUploadStateException();
     }
 
     private static String objectKey(String ownerId, UUID fileId) {

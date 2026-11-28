@@ -183,6 +183,15 @@ Set-Location D:\KMA\Fluxio\Fluxio-Android
 
 ## 5. End-to-end Android ↔ Backend ↔ MinIO
 
+### B1 comparison precondition
+
+Run the same checksum-known source through both Android choices:
+
+- **Upload bình thường — single PUT:** no whole-file cache; interruption restarts at byte zero and records resent bytes.
+- **Upload tối ưu — multipart:** direct parts through the multipart control plane; compare completion time and retransmitted bytes under the same network profile.
+
+Both runs must use the same account, source, backend build, MinIO instance, emulator fingerprint, and network profile. Record the selected mode with every result row.
+
 ### 5.0 Khởi động môi trường E2E
 
 ```powershell

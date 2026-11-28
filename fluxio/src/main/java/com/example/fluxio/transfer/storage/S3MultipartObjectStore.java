@@ -3,6 +3,7 @@ package com.example.fluxio.transfer.storage;
 import java.net.URI;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
@@ -15,7 +16,11 @@ import software.amazon.awssdk.services.s3.model.CompletedMultipartUpload;
 import software.amazon.awssdk.services.s3.model.CreateMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
+import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 import software.amazon.awssdk.services.s3.model.ListMultipartUploadsRequest;
 import software.amazon.awssdk.services.s3.model.ListPartsRequest;
 import software.amazon.awssdk.services.s3.model.UploadPartRequest;
@@ -98,6 +103,16 @@ public final class S3MultipartObjectStore implements MultipartObjectStore, AutoC
     }
 
     @Override
+    public Optional<ObjectMetadata> findObject(String objectKey) {
+        try {
+            return Optional.of(headObject(objectKey));
+        } catch (S3Exception failure) {
+            if (failure.statusCode() == 404) return Optional.empty();
+            throw failure;
+        }
+    }
+
+    @Override
     public boolean multipartExists(String objectKey, String uploadId) {
         return client.listMultipartUploads(ListMultipartUploadsRequest.builder()
                         .bucket(properties.bucket()).prefix(objectKey).build()).uploads().stream()
@@ -109,6 +124,19 @@ public final class S3MultipartObjectStore implements MultipartObjectStore, AutoC
         var request = GetObjectRequest.builder().bucket(properties.bucket()).key(objectKey).build();
         return URI.create(presigner.presignGetObject(GetObjectPresignRequest.builder()
                 .signatureDuration(properties.presignDuration()).getObjectRequest(request).build()).url().toString());
+    }
+
+    @Override
+    public URI presignPut(String objectKey, String contentType) {
+        var request = PutObjectRequest.builder().bucket(properties.bucket()).key(objectKey)
+                .contentType(contentType).build();
+        return URI.create(presigner.presignPutObject(PutObjectPresignRequest.builder()
+                .signatureDuration(properties.presignDuration()).putObjectRequest(request).build()).url().toString());
+    }
+
+    @Override
+    public void deleteObject(String objectKey) {
+        client.deleteObject(DeleteObjectRequest.builder().bucket(properties.bucket()).key(objectKey).build());
     }
 
     private static String stripQuotes(String value) {

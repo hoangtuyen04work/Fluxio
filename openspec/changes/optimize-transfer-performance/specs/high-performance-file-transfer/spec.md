@@ -175,3 +175,27 @@ The demonstration evaluation SHALL compare the mandatory `B0` through `B4` modes
 
 - **WHEN** the optional segmented parallel download experiment is omitted
 - **THEN** the demonstration remains acceptable if required sequential streaming, version-guarded ranged resume, interruption recovery, and benchmark evidence pass
+
+### Requirement: User-selectable B1 upload
+
+The Android application SHALL expose B1 as a normal single-PUT choice beside optimized multipart upload. B1 SHALL use bounded direct streaming without a complete temporary copy and SHALL share authentication, limits, quota, metadata, storage, and measurement with the optimized path.
+
+#### Scenario: User selects normal upload
+
+- **WHEN** the user chooses normal upload and selects a source with a trustworthy exact size
+- **THEN** Android creates a dedicated single-upload session, performs one direct PUT, completes shared file metadata, and creates no whole-file cache copy
+
+#### Scenario: Normal upload is interrupted
+
+- **WHEN** the B1 PUT fails after transmitting bytes and its bounded retry policy permits another attempt
+- **THEN** the next PUT starts at byte zero and the client records the resent bytes rather than claiming resume
+
+#### Scenario: Authentication is unavailable after process death
+
+- **WHEN** WorkManager cannot access a valid in-memory JWT
+- **THEN** the transfer becomes `AUTH_REQUIRED`, performs no automatic network retry, and waits for user sign-in before B1 restarts or multipart reconciliation continues
+
+#### Scenario: Selected source has unknown size
+
+- **WHEN** the selected content URI cannot provide a trustworthy exact byte size
+- **THEN** B1 rejects the source with a stable user-visible error and does not pre-scan it in a way that changes benchmark startup cost
